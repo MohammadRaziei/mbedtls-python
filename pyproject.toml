@@ -3,8 +3,11 @@ requires = [
     "scikit-build-core[pyproject]",
     "cython>=3.1",
     "cython-cmake",
+    "auditwheel>=6; sys_platform == 'linux'",
+    "patchelf; sys_platform == 'linux'",
 ]
-build-backend = "scikit_build_core.build"
+build-backend = "backend"
+backend-path = ["_build_backend"]
 
 [project]
 name = "mbedtls"
@@ -60,6 +63,7 @@ build-type = "Release"
 [tool.scikit-build]
 wheel.py-api = "cp39"
 sdist.include = [
+    "_build_backend/backend.py",
     "src/third_party/curl/**/*"
 ]
 
