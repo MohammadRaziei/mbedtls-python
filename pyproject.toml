@@ -1,15 +1,17 @@
 [build-system]
 requires = [
-    "scikit-build-core[pyproject]",
-    "cython>=3.1",
+    "scikit-build-core[pyproject]>=1.1",  # [[tool.dynamic-metadata]] (see below)
+    "cython>=3.1",  # freethreading_compatible, automatic limited API
     "cython-cmake",
+    "jsonschema",  # jsonschema + jinja2: Mbed TLS's make_generated_files.py (see CMakeLists.txt)
+    "jinja2",
 ]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "mbedtls"
-version = "0.0.1"
-description = "A Cython project with scikit-build"
+dynamic = ["version"]
+description = "Python bindings for Mbed TLS: statically linked, thread-safe, one abi3 wheel for CPython 3.9+"
 authors = [
     {name = "Mohammad Raziei", email = "mohammadraziei1375@gmail.com"},
 ]
@@ -24,68 +26,58 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading :: 1 - Unstable",
 ]
 requires-python = ">=3.9"
-dependencies = [
-    "numpy>=1.20",
-    "click>=8.0",
-]
-
-[project.scripts]
-mbedtls = "mbedtls.__main__:main"
+dependencies = []
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=7.0",
-    "pytest-xdist>=3.0",
-    "pytest-cov>=4.0",
-    "black>=23.0",
-    "isort>=5.0",
-    "flake8>=6.0",
-]
+test = ["pytest>=7.0"]
 
 [project.urls]
 "Homepage" = "https://github.com/MohammadRaziei/mbedtls-python"
-"Bug Tracker" = "https://github.com/MohammadRaziei/mbedtls/issues"
-"Document" = "https://MohammadRaziei.github.io/mbedtls"
-
-
-[tool.setuptools.package-dir]
-mbedtls = "src/mbedtls"
+"Bug Tracker" = "https://github.com/MohammadRaziei/mbedtls-python/issues"
 
 [tool.scikit-build.cmake]
 version = ">=3.26"
 build-type = "Release"
 
-[tool.scikit-build]
-wheel.py-api = "cp39"
-sdist.include = [
-    "src/third_party/curl/**/*"
-]
+# Stable ABI: one cp39-abi3 wheel per platform works on every GIL-enabled CPython from 3.9 up. Free-threaded
+# Python cannot load abi3 wheels, so CI builds cp313t, cp314t and cp315t separately (scikit-build-core ignores
+# py-api for them). See .github/workflows/wheels.yml.
+[tool.scikit-build.wheel]
+py-api = "cp39"
+packages = []  # the package files are installed by CMake (install(DIRECTORY ...)), not auto-collected
 
+[tool.scikit-build]
+# The submodule is not tracked by this repo, so the sdist must be told to carry it (with its own nested submodules).
+sdist.include = ["src/third_party/mbedtls/**/*"]
+
+[tool.scikit-build.install]
+strip = true
+
+[[tool.dynamic-metadata]]
+field = "version"
+provider = "scikit_build_core.metadata.regex"
+input = "src/mbedtls/__init__.py"
+regex = '''__version__\s*=\s*"(?P<value>[^"]+)"'''
 
 [tool.cibuildwheel]
 skip = "*i686*"
-test-command = "pytest {project}/tests"
+test-command = "pytest {project}/tests -o faulthandler_timeout=120"
 test-extras = ["test"]
 
 [tool.cibuildwheel.linux]
 repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"
 
+# Mbed TLS is linked statically into the extension: there is no DLL to bundle. cibuildwheel 4.x runs delvewheel on
+# Windows by default, which has nothing to do here.
+[tool.cibuildwheel.windows]
+repair-wheel-command = ""
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = [
-    "-v",
-    "--tb=short",
-]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-
-[tool.black]
-line-length = 88
-target-version = ['py311']
-
-[tool.isort]
-profile = "black"
-multi_line_output = 3
+addopts = ["-v", "--tb=short"]
+faulthandler_timeout = 120

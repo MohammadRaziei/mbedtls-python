@@ -1,19 +1,4 @@
 mbedtls-python
-========================
+==============
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
-   installation
-   usage
-   api
-   contributing
-   authors
-   history
-
-Indices and tables
-==================
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+Python bindings for Mbed TLS. See the README for the build and the current API.

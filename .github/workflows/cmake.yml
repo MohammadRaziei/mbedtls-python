@@ -1,0 +1,74 @@
+name: cmake stuff
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: recursive
+
+    - uses: actions/setup-python@v6
+      with:
+        python-version: "3.11"
+        cache: "pip"
+
+    # jsonschema + jinja2: Mbed TLS's make_generated_files.py (called from CMakeLists.txt)
+    - name: Install python deps
+      run: pip install -r requirements-dev.txt
+
+    - name: Configure
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DMBEDTLS_PY_BUILD_TESTS=ON
+
+    - name: Build
+      run: cmake --build build -j4 --config Release
+
+    - name: Test
+      run: ctest --test-dir build -C Release --output-on-failure
+
+  # The threading layer is what makes the shared PSA state safe: run the same stress test under ThreadSanitizer, once
+  # with the pthread layer and once with the alt layer (the one Windows uses, run here over pthread).
+  tsan:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        alt: [OFF, ON]
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: recursive
+
+    - uses: actions/setup-python@v6
+      with:
+        python-version: "3.11"
+        cache: "pip"
+
+    - name: Install python deps
+      run: pip install -r requirements-dev.txt
+
+    - name: Configure
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+          -DMBEDTLS_PY_BUILD_TESTS=ON \
+          -DMBEDTLS_PY_THREADING_ALT=${{ matrix.alt }} \
+          -DCMAKE_C_FLAGS=-fsanitize=thread \
+          -DCMAKE_CXX_FLAGS=-fsanitize=thread \
+          -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=thread
+
+    - name: Build
+      run: cmake --build build -j4
+
+    - name: Test
+      run: ctest --test-dir build --output-on-failure

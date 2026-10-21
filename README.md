@@ -1,59 +1,46 @@
 # mbedtls-python
 
-A Cython project with scikit-build
+Python bindings for [Mbed TLS](https://github.com/Mbed-TLS/mbedtls) (4.2.0), built the same way as
+[httpp](https://github.com/MohammadRaziei/httpp): Cython, scikit-build-core, one `cp39-abi3` wheel per platform plus
+separate free-threaded wheels (`cp313t`, `cp314t`, `cp315t`).
 
-## Overview
+Mbed TLS is a git submodule, built from source and linked **statically** into the extension, with hidden visibility:
+no system package, no DLL, and no symbol clash with another copy in the same process.
 
-This project provides Python bindings for the [libcurl](https://curl.se/libcurl/) library, enabling HTTP client capabilities in Python with native performance through Cython integration.
-
-**Note:** This project is not just for Python developers! C++ developers can also use the pre-built libcurl library included in this package instead of building libcurl from source.
-
-## Features
-
-- Python bindings for libcurl HTTP client
-- Built with Cython for optimal performance
-- CMake integration via scikit-build
-- Support for HTTP/HTTPS protocols
-- Test-driven development approach
-
-## Installation
-
-```bash
-pip install mbedtls
-```
-
-For the latest development version:
-```bash
-pip install git+https://github.com/MohammadRaziei/mbedtls.git
-```
-
-## Quick Start
-
-### Basic HTTP Request
+**Status: level 1** (build system, thread safety, CI). The API is only `version()` and `sha256()` for now.
 
 ```python
-from mbedtls import curl
+import mbedtls
 
-# Create a curl instance
-c = curl.Curl()
-
-# Perform a GET request
-response = c.get("https://httpbin.org/get")
-print(response.status_code)
-print(response.text)
-
-# Perform a POST request
-response = c.post("https://httpbin.org/post", data={"key": "value"})
-print(response.json())
+mbedtls.version()         # "4.2.0"  (the Mbed TLS this wheel was built against)
+mbedtls.sha256(b"abc")    # 32 bytes, GIL released while hashing
 ```
 
-## Development
+## Thread safety
 
-Run tests:
+TF-PSA-Crypto keeps process-wide state (the PSA random generator, key slots) that is only locked when its threading
+layer is on, so it is always on (`cmake/mbedtls_config.h`): pthread on POSIX, an `SRWLOCK` alt layer on Windows
+(`src/core/threading.cpp`). CI runs a C++ stress test under ThreadSanitizer with both layers.
+
+## Build from a checkout
+
 ```bash
-pytest -n auto
+git clone --recurse-submodules https://github.com/MohammadRaziei/mbedtls-python
+cd mbedtls-python
+pip install -r requirements-dev.txt     # jsonschema + jinja2 for Mbed TLS's code generators; Perl must be on PATH
+
+pip install .[test] && pytest           # the Python package
+cmake -B build -DMBEDTLS_PY_BUILD_TESTS=ON && cmake --build build && ctest --test-dir build   # C++ core only
 ```
 
-## License
+Forgot `--recurse-submodules`? `git submodule update --init --recursive`.
 
-MIT License
+## Layout
+
+| Path | What |
+|---|---|
+| `src/third_party/mbedtls` | submodule, pinned to `v4.2.0` |
+| `cmake/mbedtls_config.h` | Mbed TLS user config (threading) |
+| `src/core/` | C++ core: `mbedtls_py::core` target, threading registration |
+| `src/mbedtls/` | Python package and the Cython module `_mbedtls.pyx` |
+| `tests/` | `pytest` for Python, `tests/cpp/smoke.cpp` for the core (ctest) |

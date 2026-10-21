@@ -1,8 +1,7 @@
-"""A Cython project with scikit-build"""
+"""Python bindings for Mbed TLS: statically linked, thread-safe, one abi3 wheel for CPython 3.9+."""
 
-__version__ = "0.0.1"
+__version__ = "0.1.0"
 
-# Import the compiled Cython module
-from .mbedtls import hello_world, Calculator
+from ._mbedtls import sha256, version
 
-__all__ = ["hello_world", "Calculator"]
+__all__ = ["__version__", "sha256", "version"]
