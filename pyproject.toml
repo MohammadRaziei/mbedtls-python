@@ -69,10 +69,6 @@ skip = "*i686*"
 test-command = "pytest {project}/tests"
 test-extras = ["test"]
 
-[tool.cibuildwheel.linux]
-repair-wheel-command = "cp {wheel} {dest_dir}/"
-
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = [
