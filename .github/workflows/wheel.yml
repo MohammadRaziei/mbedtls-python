@@ -51,16 +51,19 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install build twine
+        pip install build twine auditwheel patchelf
 
     - name: Build package
       run: python -m build
 
+    - name: Repair Linux wheel
+      run: auditwheel repair dist/*.whl --wheel-dir wheelhouse
+
     - name: Check distributions
-      run: twine check dist/*
+      run: twine check wheelhouse/*.whl dist/*.tar.gz
 
     - name: Publish to PyPI
       env:
         TWINE_USERNAME: __token__
         TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-      run: twine upload dist/*
+      run: twine upload wheelhouse/*.whl dist/*.tar.gz
