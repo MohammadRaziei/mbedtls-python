@@ -1,5 +1,6 @@
 // Links the C++ core (mbedtls_py::core) without Python and hammers the parts the threading layer protects:
-// concurrent hashing and the shared PSA random generator. Run under ThreadSanitizer in CI.
+// concurrent hashing, HMAC (volatile key slots) and the shared PSA random generator. Run under ThreadSanitizer in CI.
+#include <mbedtls_py_crypto.h>
 #include <mbedtls_py_threading.h>
 #include <psa/crypto.h>
 
@@ -20,14 +21,35 @@ int main() {
         return 1;
     }
 
+    // HMAC-SHA256, RFC 4231 test case 1, and an unknown algorithm name.
+    {
+        static const unsigned char kHmac[32] = {0xb0, 0x34, 0x4c, 0x61, 0xd8, 0xdb, 0x38, 0x53, 0x5c, 0xa8, 0xaf,
+                                                0xce, 0xaf, 0x0b, 0xf1, 0x2b, 0x88, 0x1d, 0xc2, 0x00, 0xc9, 0x83,
+                                                0x3d, 0xa7, 0x26, 0xe9, 0x37, 0x6c, 0x2e, 0x32, 0xcf, 0xf7};
+        unsigned char key[20], out[MBEDTLS_PY_MAX_DIGEST_SIZE];
+        std::memset(key, 0x0b, sizeof key);
+        size_t len = 0;
+        if (mbedtls_py_hmac("sha256", key, sizeof key, reinterpret_cast<const unsigned char*>("Hi There"), 8, out,
+                            &len) != 0 ||
+            len != 32 || std::memcmp(out, kHmac, 32) != 0) {
+            std::fprintf(stderr, "hmac mismatch\n");
+            return 1;
+        }
+        if (mbedtls_py_digest("nope", key, 1, out, &len) != MBEDTLS_PY_ERR_UNKNOWN_ALGORITHM) {
+            std::fprintf(stderr, "unknown algorithm not rejected\n");
+            return 1;
+        }
+    }
+
     std::atomic<int> failures{0};
     auto work = [&failures] {
         for (int i = 0; i < 200; ++i) {
-            unsigned char out[32], rnd[32];
-            size_t len = 0;
-            if (psa_hash_compute(PSA_ALG_SHA_256, reinterpret_cast<const unsigned char*>("abc"), 3, out,
-                                 sizeof out, &len) != PSA_SUCCESS ||
-                len != 32 || std::memcmp(out, kAbc, 32) != 0 || psa_generate_random(rnd, sizeof rnd) != PSA_SUCCESS) {
+            unsigned char out[MBEDTLS_PY_MAX_DIGEST_SIZE], mac[MBEDTLS_PY_MAX_DIGEST_SIZE], rnd[32];
+            size_t len = 0, mac_len = 0;
+            if (mbedtls_py_digest("sha256", reinterpret_cast<const unsigned char*>("abc"), 3, out, &len) != 0 ||
+                len != 32 || std::memcmp(out, kAbc, 32) != 0 ||
+                mbedtls_py_hmac("sha512", rnd, 0, out, 32, mac, &mac_len) != 0 || mac_len != 64 ||
+                psa_generate_random(rnd, sizeof rnd) != PSA_SUCCESS) {
                 ++failures;
             }
         }

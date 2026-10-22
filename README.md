@@ -7,14 +7,22 @@ separate free-threaded wheels (`cp313t`, `cp314t`, `cp315t`).
 Mbed TLS is a git submodule, built from source and linked **statically** into the extension, with hidden visibility:
 no system package, no DLL, and no symbol clash with another copy in the same process.
 
-**Status: level 1** (build system, thread safety, CI). The API is only `version()` and `sha256()` for now.
+**Status: level 2** (level 1: build system, thread safety, CI). The API covers one-shot digests, HMAC and random bytes.
 
 ```python
 import mbedtls
 
-mbedtls.version()         # "4.2.0"  (the Mbed TLS this wheel was built against)
-mbedtls.sha256(b"abc")    # 32 bytes, GIL released while hashing
+mbedtls.version()                       # "4.2.0"  (the Mbed TLS this wheel was built against)
+mbedtls.algorithms                      # ("md5", "sha1", "sha224", "sha256", "sha384", "sha512", "sha3_224", ...)
+mbedtls.digest("sha3_256", b"abc")      # bytes; names are spelled like hashlib's
+mbedtls.sha256(b"abc")                  # shorthand for digest("sha256", ...)
+mbedtls.hmac("sha256", key, data)       # key may be empty
+mbedtls.random_bytes(32)                # PSA random generator
 ```
+
+Input is `bytes`, `bytearray` or `memoryview` (anything else is a `TypeError`; an unknown algorithm is a `ValueError`).
+The GIL is released while computing. Everything is one-shot and stateless, so there is nothing to lock on your side;
+compare MACs with `hmac.compare_digest` from the standard library.
 
 ## Thread safety
 
@@ -41,6 +49,6 @@ Forgot `--recurse-submodules`? `git submodule update --init --recursive`.
 |---|---|
 | `src/third_party/mbedtls` | submodule, pinned to `v4.2.0` |
 | `cmake/mbedtls_config.h` | Mbed TLS user config (threading) |
-| `src/core/` | C++ core: `mbedtls_py::core` target, threading registration |
+| `src/core/` | C++ core: `mbedtls_py::core` target, threading registration, digest/HMAC helpers |
 | `src/mbedtls/` | Python package and the Cython module `_mbedtls.pyx` |
 | `tests/` | `pytest` for Python, `tests/cpp/smoke.cpp` for the core (ctest) |

@@ -72,7 +72,7 @@ endif()
 add_subdirectory(${_mbedtls_dir} EXCLUDE_FROM_ALL)
 
 # One target for everything downstream: Mbed TLS + the threading registration.
-add_library(mbedtls_py_core STATIC src/core/threading.cpp)
+add_library(mbedtls_py_core STATIC src/core/threading.cpp src/core/crypto.cpp)
 target_include_directories(mbedtls_py_core PUBLIC ${PROJECT_SOURCE_DIR}/src/core)
 target_link_libraries(mbedtls_py_core PUBLIC mbedtls mbedx509 tfpsacrypto Threads::Threads)
 add_library(mbedtls_py::core ALIAS mbedtls_py_core)
