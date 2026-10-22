@@ -1,0 +1,58 @@
+name: prebuilt core
+
+# The C++ core (static Mbed TLS + mbedtls_py::core) as a relocatable package: install it, build the example consumer
+# against the install prefix, then pack the same install as an archive per OS.
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  package:
+    name: Package on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: recursive
+
+    - uses: actions/setup-python@v6
+      with:
+        python-version: "3.11"
+        cache: "pip"
+
+    - name: Install python deps
+      run: pip install -r requirements-dev.txt
+
+    - name: Configure
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: cmake --build build -j4 --config Release
+
+    - name: Install
+      run: cmake --install build --config Release --prefix "${{ runner.temp }}/prefix"
+
+    - name: Build the example consumer against the install prefix
+      run: cmake -S examples/consumer -B consumer-build -DCMAKE_PREFIX_PATH="${{ runner.temp }}/prefix"
+
+    - name: Build consumer
+      run: cmake --build consumer-build --config Release
+
+    - name: Run consumer
+      run: ctest --test-dir consumer-build -C Release --output-on-failure
+
+    - name: Pack
+      run: cpack --config build/CPackConfig.cmake -C Release -B dist
+
+    - uses: actions/upload-artifact@v7
+      with:
+        name: prebuilt-${{ matrix.os }}
+        path: dist/mbedtls-py-core-*
+        overwrite: false

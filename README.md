@@ -7,7 +7,7 @@ separate free-threaded wheels (`cp313t`, `cp314t`, `cp315t`).
 Mbed TLS is a git submodule, built from source and linked **statically** into the extension, with hidden visibility:
 no system package, no DLL, and no symbol clash with another copy in the same process.
 
-**Status: level 2** (level 1: build system, thread safety, CI). The API covers one-shot digests, HMAC and random bytes.
+**Status: level 3** (1: build system, thread safety, CI; 2: one-shot digests, HMAC, random bytes; 3: installable C++ package).
 
 ```python
 import mbedtls
@@ -43,6 +43,19 @@ cmake -B build -DMBEDTLS_PY_BUILD_TESTS=ON && cmake --build build && ctest --tes
 
 Forgot `--recurse-submodules`? `git submodule update --init --recursive`.
 
+## Use the C++ core without building Mbed TLS
+
+`cmake --install build --prefix <dir>` (or the `mbedtls-py-core-*` archive from the `prebuilt core` workflow) gives a
+relocatable package: static libraries, headers and a CMake config.
+
+```cmake
+find_package(mbedtls_py CONFIG REQUIRED)        # CMAKE_PREFIX_PATH=<dir>
+target_link_libraries(app PRIVATE mbedtls_py::core)
+```
+
+Call `mbedtls_py_threading_init()` before the first Mbed TLS / PSA call. `examples/consumer` is a complete project.
+The target carries the include path, the exact user config the libraries were built with and the system libraries.
+
 ## Layout
 
 | Path | What |
@@ -51,4 +64,5 @@ Forgot `--recurse-submodules`? `git submodule update --init --recursive`.
 | `cmake/mbedtls_config.h` | Mbed TLS user config (threading) |
 | `src/core/` | C++ core: `mbedtls_py::core` target, threading registration, digest/HMAC helpers |
 | `src/mbedtls/` | Python package and the Cython module `_mbedtls.pyx` |
+| `examples/consumer` | smallest user of the installed package (also run in CI) |
 | `tests/` | `pytest` for Python, `tests/cpp/smoke.cpp` for the core (ctest) |

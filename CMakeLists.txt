@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.26)
-project(mbedtls_python LANGUAGES C CXX)
+
+# One version for everything: the Python package's (src/mbedtls/__init__.py, also read by pyproject.toml).
+file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/src/mbedtls/__init__.py _version_line REGEX "^__version__")
+string(REGEX REPLACE ".*\"([0-9]+\\.[0-9]+\\.[0-9]+)\".*" "\\1" MBEDTLS_PY_VERSION "${_version_line}")
+project(mbedtls_python VERSION ${MBEDTLS_PY_VERSION} LANGUAGES C CXX)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
@@ -82,6 +86,41 @@ if(MBEDTLS_PY_BUILD_TESTS)
     add_executable(mbedtls_py_smoke tests/cpp/smoke.cpp)
     target_link_libraries(mbedtls_py_smoke PRIVATE mbedtls_py::core)
     add_test(NAME smoke COMMAND mbedtls_py_smoke)
+endif()
+
+# --- Install: a prebuilt, relocatable C++ package (find_package(mbedtls_py CONFIG), target mbedtls_py::core) ---
+# Not part of the wheel build. `cmake --install build --prefix <dir>` or `cpack` (see .github/workflows/prebuilt.yml).
+if(NOT DEFINED SKBUILD AND PROJECT_IS_TOP_LEVEL)
+    include(GNUInstallDirs)
+    include(CMakePackageConfigHelpers)
+
+    install(TARGETS mbedtls_py_core mbedtls mbedx509 tfpsacrypto ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    # The three include roots Mbed TLS itself puts on the include path (see its library/CMakeLists.txt).
+    foreach(_root include tf-psa-crypto/include tf-psa-crypto/drivers/builtin/include)
+        install(DIRECTORY ${_mbedtls_dir}/${_root}/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} FILES_MATCHING PATTERN "*.h")
+    endforeach()
+    install(FILES src/core/mbedtls_py_threading.h src/core/mbedtls_py_crypto.h src/core/alt/threading_alt.h
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    install(FILES cmake/mbedtls_config.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mbedtls_py)
+
+    configure_package_config_file(cmake/mbedtls_py-config.cmake.in ${PROJECT_BINARY_DIR}/mbedtls_py-config.cmake
+        INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/mbedtls_py)
+    write_basic_package_version_file(${PROJECT_BINARY_DIR}/mbedtls_py-config-version.cmake
+        COMPATIBILITY SameMinorVersion)  # 0.x: a minor bump may break
+    install(FILES ${PROJECT_BINARY_DIR}/mbedtls_py-config.cmake ${PROJECT_BINARY_DIR}/mbedtls_py-config-version.cmake
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/mbedtls_py)
+
+    # ponytail: the archive is only as portable as the runner that built it (glibc of ubuntu-latest, macOS arch of
+    # macos-latest, no universal2). Upgrade path: build the Linux one in a manylinux container.
+    set(CPACK_PACKAGE_NAME mbedtls-py-core)
+    set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+    set(CPACK_PACKAGE_FILE_NAME mbedtls-py-core-${PROJECT_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR})
+    if(WIN32)
+        set(CPACK_GENERATOR ZIP)
+    else()
+        set(CPACK_GENERATOR TGZ)
+    endif()
+    include(CPack)
 endif()
 
 # --- Python extension (only under scikit-build-core, i.e. `pip install .` / cibuildwheel) ---
