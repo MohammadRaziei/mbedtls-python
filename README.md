@@ -57,22 +57,22 @@ cd mbedtls-python
 pip install -r requirements-dev.txt     # jsonschema + jinja2 for Mbed TLS's code generators; Perl must be on PATH
 
 pip install .[test] && pytest           # the Python package
-cmake -B build -DMBEDTLS_PY_BUILD_TESTS=ON && cmake --build build && ctest --test-dir build   # C++ core only
+cmake -B build -DMBEDTLS_CPP_BUILD_TESTS=ON && cmake --build build && ctest --test-dir build   # C++ core only
 ```
 
 Forgot `--recurse-submodules`? `git submodule update --init --recursive`.
 
 ## Use the C++ core without building Mbed TLS
 
-`cmake --install build --prefix <dir>` (or the `mbedtls-py-core-*` archive from the `prebuilt core` workflow) gives a
+`cmake --install build --prefix <dir>` (or the `mbedtls-cpp-core-*` archive from the `prebuilt core` workflow) gives a
 relocatable package: static libraries, headers and a CMake config.
 
 ```cmake
-find_package(mbedtls_py CONFIG REQUIRED)        # CMAKE_PREFIX_PATH=<dir>
-target_link_libraries(app PRIVATE mbedtls_py::core)
+find_package(mbedtls_cpp CONFIG REQUIRED)        # CMAKE_PREFIX_PATH=<dir>
+target_link_libraries(app PRIVATE mbedtls_cpp::core)
 ```
 
-Call `mbedtls_py_threading_init()` before the first Mbed TLS / PSA call. `examples/consumer` is a complete project.
+Call `mbedtls_cpp_threading_init()` before the first Mbed TLS / PSA call. `examples/consumer` is a complete project.
 The target carries the include path, the exact user config the libraries were built with and the system libraries.
 
 ## Releasing
@@ -92,8 +92,8 @@ Needs the repository secrets `PYPI_USERNAME` and `PYPI_PASSWORD` (same as httpp)
 |---|---|
 | `src/third_party/mbedtls` | submodule, pinned to `v4.2.0` |
 | `cmake/mbedtls_config.h` | Mbed TLS user config (threading) |
-| `include/`, `src/` | public headers and C++ core: `mbedtls_py::core` target, threading registration, digest/HMAC/X.509 helpers |
-| `src/bindings/python/mbedtls/` | Python package and the Cython module `_mbedtls.pyx` |
+| `include/`, `src/` | public headers and C++ core: `mbedtls_cpp::core` target, threading registration, digest/HMAC/X.509 helpers |
+| `src/bindings/python/mbedtls/` | Python package and the Cython module `_mbedtls_cy.pyx` |
 | `examples/consumer` | smallest user of the installed package (also run in CI) |
 | `tests/python`, `tests/cpp` | `pytest` for Python, `tests/cpp/smoke.cpp` for the core (ctest) |
 | `tests/data` | test certificates, regenerate with `tests/gen_x509_fixtures.sh` |
@@ -106,9 +106,9 @@ all a C++ project needs (same idea as `python -m nanobind --cmake_dir`):
 ```cmake
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 execute_process(COMMAND ${Python3_EXECUTABLE} -m mbedtls --cmake-dir
-                OUTPUT_VARIABLE mbedtls_py_DIR OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
-find_package(mbedtls_py CONFIG REQUIRED)
-target_link_libraries(app PRIVATE mbedtls_py::core)
+                OUTPUT_VARIABLE mbedtls_cpp_DIR OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+find_package(mbedtls_cpp CONFIG REQUIRED)
+target_link_libraries(app PRIVATE mbedtls_cpp::core)
 ```
 
 ```sh

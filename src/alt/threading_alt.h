@@ -1,7 +1,7 @@
 /* Mutex and condition variable types of the alt threading layer (see cmake/mbedtls_config.h). Plain C types:
  * Mbed TLS itself is compiled as C. */
-#ifndef MBEDTLS_PY_THREADING_ALT_H
-#define MBEDTLS_PY_THREADING_ALT_H
+#ifndef MBEDTLS_CPP_THREADING_ALT_H
+#define MBEDTLS_CPP_THREADING_ALT_H
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN

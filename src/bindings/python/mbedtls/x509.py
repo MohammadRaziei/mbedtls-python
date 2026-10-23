@@ -7,7 +7,7 @@ signatures, RSA of at least 2048 bits, the common curves) and the current time; 
 import base64
 import datetime
 
-from . import _mbedtls
+from . import _mbedtls_cy
 
 __all__ = ["Certificate", "VerificationError", "load_pem_bundle"]
 
@@ -53,7 +53,7 @@ class Certificate:
 
     def __init__(self, der):
         """``der``: one binary DER certificate (bytes-like)."""
-        entries = _mbedtls._x509_parse(_to_bytes(der, "der"), False)
+        entries = _mbedtls_cy._x509_parse(_to_bytes(der, "der"), False)
         self._set(entries[0])
 
     def _set(self, entry):
@@ -103,7 +103,7 @@ class Certificate:
 
     def fingerprint(self, algorithm="sha256"):
         """Digest of the DER encoding (bytes); ``algorithm`` is one of :data:`mbedtls.algorithms`."""
-        return _mbedtls.digest(algorithm, self.der)
+        return _mbedtls_cy.digest(algorithm, self.der)
 
     def verify(self, trusted, *, intermediates=(), hostname=None):
         """Check that this certificate chains up to one of ``trusted`` (a Certificate or an iterable of them),
@@ -126,7 +126,7 @@ class Certificate:
                 host = hostname.encode("ascii")
             except UnicodeEncodeError:
                 raise ValueError("hostname must be ASCII: encode internationalized names to punycode") from None
-        status, flags, text = _mbedtls._x509_verify(chain, anchors, host)
+        status, flags, text = _mbedtls_cy._x509_verify(chain, anchors, host)
         if status != 0:
             raise VerificationError([line.strip() for line in text.splitlines() if line.strip()], flags)
 
@@ -150,7 +150,7 @@ def _load_pem(data):
     pem = _to_bytes(data, "data", text_ok=True)
     if b"\x00" in pem:
         raise ValueError("PEM data must not contain NUL")
-    return _mbedtls._x509_parse(pem, True)
+    return _mbedtls_cy._x509_parse(pem, True)
 
 
 def load_pem_bundle(data):

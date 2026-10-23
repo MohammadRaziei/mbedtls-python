@@ -6,24 +6,24 @@ from libc.stddef cimport size_t
 from libc.stdint cimport int32_t, uint32_t, uint8_t
 from libc.stdlib cimport free, malloc
 
-cdef extern from "mbedtls_py_threading.h":
-    void mbedtls_py_threading_init()
+cdef extern from "mbedtls_cpp_threading.h":
+    void mbedtls_cpp_threading_init()
 
-cdef extern from "mbedtls_py_crypto.h":
-    enum: MBEDTLS_PY_MAX_DIGEST_SIZE
-    enum: MBEDTLS_PY_ERR_UNKNOWN_ALGORITHM
-    const char *mbedtls_py_hash_name(size_t i)
-    int mbedtls_py_digest(const char *name, const uint8_t *data, size_t data_len, uint8_t *out,
+cdef extern from "mbedtls_cpp_crypto.h":
+    enum: MBEDTLS_CPP_MAX_DIGEST_SIZE
+    enum: MBEDTLS_CPP_ERR_UNKNOWN_ALGORITHM
+    const char *mbedtls_cpp_hash_name(size_t i)
+    int mbedtls_cpp_digest(const char *name, const uint8_t *data, size_t data_len, uint8_t *out,
                           size_t *out_len) nogil
-    int mbedtls_py_hmac(const char *name, const uint8_t *key, size_t key_len, const uint8_t *data,
+    int mbedtls_cpp_hmac(const char *name, const uint8_t *key, size_t key_len, const uint8_t *data,
                         size_t data_len, uint8_t *out, size_t *out_len) nogil
 
-cdef extern from "mbedtls_py_x509.h":
-    enum: MBEDTLS_PY_X509_NAME_MAX
-    enum: MBEDTLS_PY_X509_SERIAL_MAX
-    ctypedef struct mbedtls_py_x509:
+cdef extern from "mbedtls_cpp_x509.h":
+    enum: MBEDTLS_CPP_X509_NAME_MAX
+    enum: MBEDTLS_CPP_X509_SERIAL_MAX
+    ctypedef struct mbedtls_cpp_x509:
         pass
-    ctypedef struct mbedtls_py_x509_info:
+    ctypedef struct mbedtls_cpp_x509_info:
         const uint8_t *der
         size_t der_len
         int version
@@ -34,14 +34,14 @@ cdef extern from "mbedtls_py_x509.h":
         size_t serial_len
         int not_before[6]
         int not_after[6]
-    int mbedtls_py_x509_parse(const uint8_t *buf, size_t len, int pem, mbedtls_py_x509 **out) nogil
-    void mbedtls_py_x509_free(mbedtls_py_x509 *chain) nogil
-    size_t mbedtls_py_x509_count(const mbedtls_py_x509 *chain) nogil
-    int mbedtls_py_x509_get_info(const mbedtls_py_x509 *chain, size_t i, mbedtls_py_x509_info *out) nogil
-    int mbedtls_py_x509_verify(const uint8_t *const *chain, const size_t *chain_len, size_t chain_n,
+    int mbedtls_cpp_x509_parse(const uint8_t *buf, size_t len, int pem, mbedtls_cpp_x509 **out) nogil
+    void mbedtls_cpp_x509_free(mbedtls_cpp_x509 *chain) nogil
+    size_t mbedtls_cpp_x509_count(const mbedtls_cpp_x509 *chain) nogil
+    int mbedtls_cpp_x509_get_info(const mbedtls_cpp_x509 *chain, size_t i, mbedtls_cpp_x509_info *out) nogil
+    int mbedtls_cpp_x509_verify(const uint8_t *const *chain, const size_t *chain_len, size_t chain_n,
                                const uint8_t *const *trust, const size_t *trust_len, size_t trust_n,
                                const char *hostname, uint32_t *flags, char *info, size_t info_size) nogil
-    void mbedtls_py_x509_strerror(int code, char *buf, size_t size)
+    void mbedtls_cpp_x509_strerror(int code, char *buf, size_t size)
 
 cdef extern from "mbedtls/version.h":
     const char *mbedtls_version_get_string()
@@ -53,15 +53,15 @@ cdef extern from "psa/crypto.h":
     psa_status_t psa_generate_random(uint8_t *output, size_t output_size) nogil
 
 # Both must run before any other Mbed TLS call. psa_crypto_init() is idempotent.
-mbedtls_py_threading_init()
+mbedtls_cpp_threading_init()
 cdef psa_status_t _init_status = psa_crypto_init()
 if _init_status != PSA_SUCCESS:
     raise ImportError(f"psa_crypto_init() failed with status {_init_status}")
 
 cdef list _names = []
 cdef size_t _i = 0
-while mbedtls_py_hash_name(_i) != NULL:
-    _names.append(mbedtls_py_hash_name(_i).decode("ascii"))
+while mbedtls_cpp_hash_name(_i) != NULL:
+    _names.append(mbedtls_cpp_hash_name(_i).decode("ascii"))
     _i += 1
 algorithms = tuple(_names)
 """Names of the supported hash algorithms, spelled like :mod:`hashlib` does."""
@@ -88,7 +88,7 @@ cdef bytes _algorithm_name(name):
 
 
 cdef _check(int status, name, what):
-    if status == MBEDTLS_PY_ERR_UNKNOWN_ALGORITHM:
+    if status == MBEDTLS_CPP_ERR_UNKNOWN_ALGORITHM:
         raise ValueError(f"unsupported hash algorithm: {name!r}")
     if status != 0:
         raise RuntimeError(f"{what} failed with PSA status {status}")
@@ -106,11 +106,11 @@ def digest(name, data):
     cdef const char *alg_c = alg
     cdef const uint8_t *src = <const uint8_t *><char *>buf
     cdef size_t n = len(buf)
-    cdef uint8_t out[MBEDTLS_PY_MAX_DIGEST_SIZE]
+    cdef uint8_t out[MBEDTLS_CPP_MAX_DIGEST_SIZE]
     cdef size_t out_len = 0
     cdef int status
     with nogil:
-        status = mbedtls_py_digest(alg_c, src, n, out, &out_len)
+        status = mbedtls_cpp_digest(alg_c, src, n, out, &out_len)
     _check(status, name, "digest")
     return (<char *>out)[:out_len]
 
@@ -131,11 +131,11 @@ def hmac(name, key, data):
     cdef const uint8_t *src = <const uint8_t *><char *>buf
     cdef size_t key_n = len(k)
     cdef size_t n = len(buf)
-    cdef uint8_t out[MBEDTLS_PY_MAX_DIGEST_SIZE]
+    cdef uint8_t out[MBEDTLS_CPP_MAX_DIGEST_SIZE]
     cdef size_t out_len = 0
     cdef int status
     with nogil:
-        status = mbedtls_py_hmac(alg_c, key_p, key_n, src, n, out, &out_len)
+        status = mbedtls_cpp_hmac(alg_c, key_p, key_n, src, n, out, &out_len)
     _check(status, name, "hmac")
     return (<char *>out)[:out_len]
 
@@ -172,7 +172,7 @@ def random_bytes(n):
 cdef str _x509_error(int code):
     cdef char text[256]
     text[0] = 0
-    mbedtls_py_x509_strerror(code, text, sizeof(text))
+    mbedtls_cpp_x509_strerror(code, text, sizeof(text))
     msg = (<bytes>text).decode("ascii", "replace")
     return f"{msg} [-0x{-code:04X}]" if code < 0 else msg
 
@@ -183,19 +183,19 @@ def _x509_parse(data, bint pem):
     cdef bytes buf = _as_bytes(data, "data")
     cdef const uint8_t *src = <const uint8_t *><char *>buf
     cdef size_t n = len(buf)
-    cdef mbedtls_py_x509 *chain = NULL
-    cdef mbedtls_py_x509_info info
+    cdef mbedtls_cpp_x509 *chain = NULL
+    cdef mbedtls_cpp_x509_info info
     cdef int ret
     cdef size_t i, count
     with nogil:
-        ret = mbedtls_py_x509_parse(src, n, pem, &chain)
+        ret = mbedtls_cpp_x509_parse(src, n, pem, &chain)
     if ret != 0:
         raise ValueError(f"invalid certificate: {_x509_error(ret)}")
     out = []
     try:
-        count = mbedtls_py_x509_count(chain)
+        count = mbedtls_cpp_x509_count(chain)
         for i in range(count):
-            ret = mbedtls_py_x509_get_info(chain, i, &info)
+            ret = mbedtls_cpp_x509_get_info(chain, i, &info)
             if ret != 0:
                 raise ValueError(f"invalid certificate: {_x509_error(ret)}")
             out.append((
@@ -209,7 +209,7 @@ def _x509_parse(data, bint pem):
                 tuple([info.not_after[k] for k in range(6)]),
             ))
     finally:
-        mbedtls_py_x509_free(chain)
+        mbedtls_cpp_x509_free(chain)
     return out
 
 
@@ -245,7 +245,7 @@ def _x509_verify(list chain, list trust, hostname):
             ptrs[cn + i] = <const uint8_t *><char *>item
             lens[cn + i] = len(item)
         with nogil:
-            ret = mbedtls_py_x509_verify(ptrs, lens, cn, ptrs + cn, lens + cn, tn, host_c, &flags, text,
+            ret = mbedtls_cpp_x509_verify(ptrs, lens, cn, ptrs + cn, lens + cn, tn, host_c, &flags, text,
                                          sizeof(text))
     finally:
         free(ptrs)

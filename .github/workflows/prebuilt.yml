@@ -1,6 +1,6 @@
 name: prebuilt core
 
-# The C++ core (static Mbed TLS + mbedtls_py::core) as a relocatable package: install it, build the example consumer
+# The C++ core (static Mbed TLS + mbedtls_cpp::core) as a relocatable package: install it, build the example consumer
 # against the install prefix, then pack the same install as an archive per OS.
 
 on:
@@ -54,5 +54,5 @@ jobs:
     - uses: actions/upload-artifact@v7
       with:
         name: prebuilt-${{ matrix.os }}
-        path: dist/mbedtls-py-core-*
+        path: dist/mbedtls-cpp-core-*
         overwrite: false

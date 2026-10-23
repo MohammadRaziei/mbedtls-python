@@ -1,4 +1,4 @@
-#include "mbedtls_py_crypto.h"
+#include "mbedtls_cpp_crypto.h"
 
 #include <psa/crypto.h>
 
@@ -26,21 +26,21 @@ const Hash* find(const char* name) {
 
 } // namespace
 
-extern "C" const char* mbedtls_py_hash_name(size_t i) {
+extern "C" const char* mbedtls_cpp_hash_name(size_t i) {
     return i < sizeof kHashes / sizeof kHashes[0] ? kHashes[i].name : nullptr;
 }
 
-extern "C" int mbedtls_py_digest(const char* name, const unsigned char* data, size_t data_len, unsigned char* out,
+extern "C" int mbedtls_cpp_digest(const char* name, const unsigned char* data, size_t data_len, unsigned char* out,
                                  size_t* out_len) {
     const Hash* h = find(name);
-    if (!h) return MBEDTLS_PY_ERR_UNKNOWN_ALGORITHM;
-    return psa_hash_compute(h->alg, data, data_len, out, MBEDTLS_PY_MAX_DIGEST_SIZE, out_len);
+    if (!h) return MBEDTLS_CPP_ERR_UNKNOWN_ALGORITHM;
+    return psa_hash_compute(h->alg, data, data_len, out, MBEDTLS_CPP_MAX_DIGEST_SIZE, out_len);
 }
 
-extern "C" int mbedtls_py_hmac(const char* name, const unsigned char* key, size_t key_len,
+extern "C" int mbedtls_cpp_hmac(const char* name, const unsigned char* key, size_t key_len,
                                const unsigned char* data, size_t data_len, unsigned char* out, size_t* out_len) {
     const Hash* h = find(name);
-    if (!h) return MBEDTLS_PY_ERR_UNKNOWN_ALGORITHM;
+    if (!h) return MBEDTLS_CPP_ERR_UNKNOWN_ALGORITHM;
 
     // PSA refuses to import an empty key. HMAC zero-pads the key to the block size, so the empty key and a single
     // zero byte give the same result.
@@ -62,7 +62,7 @@ extern "C" int mbedtls_py_hmac(const char* name, const unsigned char* key, size_
     psa_key_id_t id = 0;
     psa_status_t status = psa_import_key(&attr, key, key_len, &id);
     if (status != PSA_SUCCESS) return status;
-    status = psa_mac_compute(id, alg, data, data_len, out, MBEDTLS_PY_MAX_DIGEST_SIZE, out_len);
+    status = psa_mac_compute(id, alg, data, data_len, out, MBEDTLS_CPP_MAX_DIGEST_SIZE, out_len);
     psa_destroy_key(id);
     return status;
 }

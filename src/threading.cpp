@@ -1,4 +1,4 @@
-#include "mbedtls_py_threading.h"
+#include "mbedtls_cpp_threading.h"
 
 #include <mbedtls/build_info.h>
 
@@ -36,7 +36,7 @@ int cond_wait(mbedtls_platform_condition_variable_t* c, mbedtls_platform_mutex_t
 } // namespace
 #endif
 
-extern "C" void mbedtls_py_threading_init(void) {
+extern "C" void mbedtls_cpp_threading_init(void) {
 #if defined(MBEDTLS_THREADING_ALT)
     // A function-local static runs its initializer exactly once, even when called from several threads.
     // ponytail: mbedtls_threading_free_alt() is never called, the global mutexes live as long as the process.

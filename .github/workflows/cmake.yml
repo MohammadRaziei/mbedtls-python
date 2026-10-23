@@ -28,7 +28,7 @@ jobs:
       run: pip install -r requirements-dev.txt
 
     - name: Configure
-      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DMBEDTLS_PY_BUILD_TESTS=ON
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DMBEDTLS_CPP_BUILD_TESTS=ON
 
     - name: Build
       run: cmake --build build -j4 --config Release
@@ -61,8 +61,8 @@ jobs:
       run: |
         cmake -B build \
           -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-          -DMBEDTLS_PY_BUILD_TESTS=ON \
-          -DMBEDTLS_PY_THREADING_ALT=${{ matrix.alt }} \
+          -DMBEDTLS_CPP_BUILD_TESTS=ON \
+          -DMBEDTLS_CPP_THREADING_ALT=${{ matrix.alt }} \
           -DCMAKE_C_FLAGS=-fsanitize=thread \
           -DCMAKE_CXX_FLAGS=-fsanitize=thread \
           -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=thread

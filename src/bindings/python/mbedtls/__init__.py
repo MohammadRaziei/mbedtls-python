@@ -8,22 +8,22 @@ _pkg_dir = _os.path.dirname(_os.path.abspath(__file__))
 
 
 def get_cmake_dir() -> str:
-    """Directory with mbedtls_py-config.cmake: use as mbedtls_py_DIR, then link mbedtls_py::core."""
+    """Directory with mbedtls_cpp-config.cmake: use as mbedtls_cpp_DIR, then link mbedtls_cpp::core."""
     return _os.path.join(_pkg_dir, "cmake")
 
 
 def get_include_dir() -> str:
-    """Directory with the Mbed TLS / PSA headers and mbedtls_py_*.h."""
+    """Directory with the Mbed TLS / PSA headers and mbedtls_cpp_*.h."""
     return _os.path.join(_pkg_dir, "include")
 
 
 def get_lib_dir() -> str:
-    """Directory with the static libraries (mbedtls_py_core, mbedtls, mbedx509, tfpsacrypto)."""
+    """Directory with the static libraries (mbedtls_cpp_core, mbedtls, mbedx509, tfpsacrypto)."""
     return _os.path.join(_pkg_dir, "lib")
 
 
 from . import x509
-from ._mbedtls import algorithms, digest, hmac, random_bytes, sha256, version
+from ._mbedtls_cy import algorithms, digest, hmac, random_bytes, sha256, version
 
 __all__ = ["__version__", "algorithms", "digest", "get_cmake_dir", "get_include_dir", "get_lib_dir", "hmac",
            "random_bytes", "sha256", "version", "x509"]

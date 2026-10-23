@@ -7,11 +7,11 @@
  *
  *  - POSIX: the pthread layer, nothing to register.
  *  - Windows has no pthread layer: the alt layer (src/threading.cpp) is registered once, over SRWLOCK and
- *    CONDITION_VARIABLE. MBEDTLS_PY_THREADING_ALT selects the alt layer on POSIX too, so the same registration
+ *    CONDITION_VARIABLE. MBEDTLS_CPP_THREADING_ALT selects the alt layer on POSIX too, so the same registration
  *    code can be run under ThreadSanitizer in CI.
  */
 #define MBEDTLS_THREADING_C
-#if defined(_WIN32) || defined(MBEDTLS_PY_THREADING_ALT)
+#if defined(_WIN32) || defined(MBEDTLS_CPP_THREADING_ALT)
 #define MBEDTLS_THREADING_ALT
 #else
 #define MBEDTLS_THREADING_PTHREAD

@@ -2,7 +2,7 @@
 // Upgrade path: drop this define the day an accessor exists; a field rename shows up as a compile error here.
 #define MBEDTLS_ALLOW_PRIVATE_ACCESS
 
-#include "mbedtls_py_x509.h"
+#include "mbedtls_cpp_x509.h"
 
 #include <mbedtls/error.h>
 #include <mbedtls/x509_crt.h>
@@ -12,7 +12,7 @@
 #include <cstring>
 #include <new>
 
-struct mbedtls_py_x509 {
+struct mbedtls_cpp_x509 {
     mbedtls_x509_crt crt;
 };
 
@@ -43,9 +43,9 @@ const mbedtls_x509_crt* nth(const mbedtls_x509_crt* crt, size_t i) {
 
 } // namespace
 
-extern "C" int mbedtls_py_x509_parse(const unsigned char* buf, size_t len, int pem, mbedtls_py_x509** out) {
+extern "C" int mbedtls_cpp_x509_parse(const unsigned char* buf, size_t len, int pem, mbedtls_cpp_x509** out) {
     *out = nullptr;
-    auto* h = new (std::nothrow) mbedtls_py_x509;
+    auto* h = new (std::nothrow) mbedtls_cpp_x509;
     if (h == nullptr) return MBEDTLS_ERR_X509_ALLOC_FAILED;
     mbedtls_x509_crt_init(&h->crt);
 
@@ -75,22 +75,22 @@ extern "C" int mbedtls_py_x509_parse(const unsigned char* buf, size_t len, int p
     return 0;
 }
 
-extern "C" void mbedtls_py_x509_free(mbedtls_py_x509* chain) {
+extern "C" void mbedtls_cpp_x509_free(mbedtls_cpp_x509* chain) {
     if (chain == nullptr) return;
     mbedtls_x509_crt_free(&chain->crt);
     delete chain;
 }
 
-extern "C" size_t mbedtls_py_x509_count(const mbedtls_py_x509* chain) {
+extern "C" size_t mbedtls_cpp_x509_count(const mbedtls_cpp_x509* chain) {
     size_t n = 0;
     while (nth(&chain->crt, n) != nullptr) ++n;
     return n;
 }
 
-extern "C" int mbedtls_py_x509_get_info(const mbedtls_py_x509* chain, size_t i, mbedtls_py_x509_info* out) {
+extern "C" int mbedtls_cpp_x509_get_info(const mbedtls_cpp_x509* chain, size_t i, mbedtls_cpp_x509_info* out) {
     const mbedtls_x509_crt* c = nth(&chain->crt, i);
     if (c == nullptr) return MBEDTLS_ERR_X509_BAD_INPUT_DATA;
-    if (c->serial.len > MBEDTLS_PY_X509_SERIAL_MAX) return MBEDTLS_ERR_X509_BUFFER_TOO_SMALL;
+    if (c->serial.len > MBEDTLS_CPP_X509_SERIAL_MAX) return MBEDTLS_ERR_X509_BUFFER_TOO_SMALL;
 
     int ret = mbedtls_x509_dn_gets(out->subject, sizeof out->subject, &c->subject);
     if (ret < 0) return ret;
@@ -116,7 +116,7 @@ extern "C" int mbedtls_py_x509_get_info(const mbedtls_py_x509* chain, size_t i, 
     return 0;
 }
 
-extern "C" int mbedtls_py_x509_verify(const unsigned char* const* chain, const size_t* chain_len, size_t chain_n,
+extern "C" int mbedtls_cpp_x509_verify(const unsigned char* const* chain, const size_t* chain_len, size_t chain_n,
                                       const unsigned char* const* trust, const size_t* trust_len, size_t trust_n,
                                       const char* hostname, uint32_t* flags, char* info, size_t info_size) {
     Chain leaf, anchors;
@@ -136,10 +136,10 @@ extern "C" int mbedtls_py_x509_verify(const unsigned char* const* chain, const s
         info[0] = '\0';
         mbedtls_x509_crt_verify_info(info, info_size, "", f);
     }
-    return MBEDTLS_PY_X509_VERIFY_FAILED;
+    return MBEDTLS_CPP_X509_VERIFY_FAILED;
 }
 
-extern "C" void mbedtls_py_x509_strerror(int code, char* buf, size_t size) {
+extern "C" void mbedtls_cpp_x509_strerror(int code, char* buf, size_t size) {
     if (code > 0) {
         std::snprintf(buf, size, "%d certificate(s) of the bundle could not be parsed", code);
         return;
