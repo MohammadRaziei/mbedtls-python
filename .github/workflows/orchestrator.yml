@@ -28,8 +28,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          export version_string="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' src/mbedtls/__init__.py)"
-          [[ -n "${version_string}" ]] || (echo "❌ No __version__ in src/mbedtls/__init__.py" && exit 1)
+          export version_string="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' src/bindings/python/mbedtls/__init__.py)"
+          [[ -n "${version_string}" ]] || (echo "❌ No __version__ in src/bindings/python/mbedtls/__init__.py" && exit 1)
           echo "version_string=${version_string}" | tee -a "$GITHUB_OUTPUT"
           if [[ "${{ github.ref }}" =~ ^refs/tags/v.*$ ]]; then
             TAG_NAME="${GITHUB_REF#refs/tags/}"

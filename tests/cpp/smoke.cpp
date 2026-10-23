@@ -64,7 +64,7 @@ int main() {
         }
     }
 
-    // X.509: parse the fixtures, then verify leaf -> int -> root from several threads (see tests/fixtures).
+    // X.509: parse the fixtures, then verify leaf -> int -> root from several threads (see tests/data).
     const std::string leaf = der_of("leaf.pem"), inter = der_of("int.pem"), root = der_of("root.pem");
     if (leaf.empty() || inter.empty() || root.empty()) {
         std::fprintf(stderr, "cannot parse the fixtures\n");

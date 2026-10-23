@@ -6,7 +6,7 @@
  * same "random" bytes. Python threads (above all on free-threaded builds) make that a real risk, so it is always on.
  *
  *  - POSIX: the pthread layer, nothing to register.
- *  - Windows has no pthread layer: the alt layer (src/core/threading.cpp) is registered once, over SRWLOCK and
+ *  - Windows has no pthread layer: the alt layer (src/threading.cpp) is registered once, over SRWLOCK and
  *    CONDITION_VARIABLE. MBEDTLS_PY_THREADING_ALT selects the alt layer on POSIX too, so the same registration
  *    code can be run under ThreadSanitizer in CI.
  */

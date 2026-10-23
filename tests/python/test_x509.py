@@ -9,7 +9,7 @@ import pytest
 from mbedtls import x509
 from mbedtls.x509 import Certificate, VerificationError, load_pem_bundle
 
-FIXTURES = Path(__file__).parent / "fixtures"
+FIXTURES = Path(__file__).parents[1] / "data"
 
 
 def pem(name):

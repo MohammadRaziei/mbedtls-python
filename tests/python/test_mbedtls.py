@@ -140,7 +140,7 @@ def test_threads():
 
 
 def test_pyx_stays_abi3_safe():
-    pyx = Path(__file__).parent.parent / "src" / "mbedtls" / "_mbedtls.pyx"
+    pyx = Path(__file__).parents[2] / "src" / "bindings" / "python" / "mbedtls" / "_mbedtls.pyx"
     if not pyx.exists():  # tests run against an installed wheel elsewhere
         pytest.skip("source tree not available")
     assert "[::" not in pyx.read_text(), "typed memoryviews are not in the limited API before Python 3.11"

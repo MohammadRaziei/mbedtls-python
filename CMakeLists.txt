@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.26)
 
-# One version for everything: the Python package's (src/mbedtls/__init__.py, also read by pyproject.toml).
-file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/src/mbedtls/__init__.py _version_line REGEX "^__version__")
+# One version for everything: the Python package's (src/bindings/python/mbedtls/__init__.py, also read by pyproject.toml).
+file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/python/mbedtls/__init__.py _version_line REGEX "^__version__")
 string(REGEX REPLACE ".*\"([0-9]+\\.[0-9]+\\.[0-9]+)\".*" "\\1" MBEDTLS_PY_VERSION "${_version_line}")
 project(mbedtls_python VERSION ${MBEDTLS_PY_VERSION} LANGUAGES C CXX)
 
@@ -71,22 +71,19 @@ endif()
 # threading_alt.h must be found by every Mbed TLS source (it builds several object libraries that do not see each
 # other's include paths) and by everything that includes its headers: a directory-level include path reaches all.
 if(WIN32 OR MBEDTLS_PY_THREADING_ALT)
-    include_directories(${PROJECT_SOURCE_DIR}/src/core/alt)
+    include_directories(${PROJECT_SOURCE_DIR}/src/alt)
 endif()
 add_subdirectory(${_mbedtls_dir} EXCLUDE_FROM_ALL)
 
 # One target for everything downstream: Mbed TLS + the threading registration.
-add_library(mbedtls_py_core STATIC src/core/threading.cpp src/core/crypto.cpp src/core/x509.cpp)
-target_include_directories(mbedtls_py_core PUBLIC ${PROJECT_SOURCE_DIR}/src/core)
+add_library(mbedtls_py_core STATIC src/threading.cpp src/crypto.cpp src/x509.cpp)
+target_include_directories(mbedtls_py_core PUBLIC ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(mbedtls_py_core PUBLIC mbedtls mbedx509 tfpsacrypto Threads::Threads)
 add_library(mbedtls_py::core ALIAS mbedtls_py_core)
 
 if(MBEDTLS_PY_BUILD_TESTS)
     enable_testing()
-    add_executable(mbedtls_py_smoke tests/cpp/smoke.cpp)
-    target_link_libraries(mbedtls_py_smoke PRIVATE mbedtls_py::core)
-    target_compile_definitions(mbedtls_py_smoke PRIVATE MBEDTLS_PY_FIXTURES_DIR="${PROJECT_SOURCE_DIR}/tests/fixtures")
-    add_test(NAME smoke COMMAND mbedtls_py_smoke)
+    add_subdirectory(tests)
 endif()
 
 # --- Install: a prebuilt, relocatable C++ package (find_package(mbedtls_py CONFIG), target mbedtls_py::core) ---
@@ -100,8 +97,8 @@ if(NOT DEFINED SKBUILD AND PROJECT_IS_TOP_LEVEL)
     foreach(_root include tf-psa-crypto/include tf-psa-crypto/drivers/builtin/include)
         install(DIRECTORY ${_mbedtls_dir}/${_root}/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} FILES_MATCHING PATTERN "*.h")
     endforeach()
-    install(FILES src/core/mbedtls_py_threading.h src/core/mbedtls_py_crypto.h src/core/mbedtls_py_x509.h
-                  src/core/alt/threading_alt.h
+    install(FILES include/mbedtls_py_threading.h include/mbedtls_py_crypto.h include/mbedtls_py_x509.h
+                  src/alt/threading_alt.h
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
     install(FILES cmake/mbedtls_config.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mbedtls_py)
 
@@ -133,7 +130,7 @@ if(DEFINED SKBUILD)
     find_package(Cython MODULE REQUIRED VERSION 3.1)
     include(UseCython)
 
-    cython_transpile(${PROJECT_SOURCE_DIR}/src/mbedtls/_mbedtls.pyx LANGUAGE CXX OUTPUT_VARIABLE _mbedtls_cxx)
+    cython_transpile(${PROJECT_SOURCE_DIR}/src/bindings/python/mbedtls/_mbedtls.pyx LANGUAGE CXX OUTPUT_VARIABLE _mbedtls_cxx)
     if(NOT "${SKBUILD_SABI_VERSION}" STREQUAL "")
         set(USE_SABI USE_SABI ${SKBUILD_SABI_VERSION})
     endif()
@@ -147,5 +144,5 @@ if(DEFINED SKBUILD)
     endif()
 
     install(TARGETS _mbedtls DESTINATION mbedtls)
-    install(DIRECTORY ${PROJECT_SOURCE_DIR}/src/mbedtls/ DESTINATION mbedtls FILES_MATCHING PATTERN "*.py")
+    install(DIRECTORY ${PROJECT_SOURCE_DIR}/src/bindings/python/mbedtls/ DESTINATION mbedtls FILES_MATCHING PATTERN "*.py")
 endif()

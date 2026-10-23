@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Regenerates tests/fixtures/*.pem (certificates only, the private keys are thrown away). Needs OpenSSL >= 1.1.1.
+# Regenerates tests/data/*.pem (certificates only, the private keys are thrown away). Needs OpenSSL >= 1.1.1.
 #
 #   root -> int -> leaf          EC P-256, the main chain
 #   root -> int -> expired       same chain, valid for one day in 2020
@@ -8,7 +8,7 @@
 #
 # Valid from 2020 until 2126, so the tests do not start failing next year.
 set -euo pipefail
-out="$(cd "$(dirname "$0")" && pwd)/fixtures"
+out="$(cd "$(dirname "$0")" && pwd)/data"
 mkdir -p "$out"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT

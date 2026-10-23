@@ -47,7 +47,7 @@ curves) and the current time; there is no CRL/OCSP support and no subjectAltName
 
 TF-PSA-Crypto keeps process-wide state (the PSA random generator, key slots) that is only locked when its threading
 layer is on, so it is always on (`cmake/mbedtls_config.h`): pthread on POSIX, an `SRWLOCK` alt layer on Windows
-(`src/core/threading.cpp`). CI runs a C++ stress test under ThreadSanitizer with both layers.
+(`src/threading.cpp`). CI runs a C++ stress test under ThreadSanitizer with both layers.
 
 ## Build from a checkout
 
@@ -81,7 +81,7 @@ The target carries the include path, the exact user config the libraries were bu
 
 - push to `master`: everything is built and the `__beta__` pre-release is refreshed with the artifacts.
 - push of a tag `vX.Y.Z`: the same, then a GitHub release and PyPI. The tag must equal `__version__` in
-  `src/mbedtls/__init__.py`, otherwise the run stops at the first step. Nothing is published unless every job passed.
+  `src/bindings/python/mbedtls/__init__.py`, otherwise the run stops at the first step. Nothing is published unless every job passed.
 
 Needs the repository secrets `PYPI_USERNAME` and `PYPI_PASSWORD` (same as httpp). Steps: bump `__version__`, commit,
 `git tag vX.Y.Z && git push --tags`.
@@ -92,8 +92,8 @@ Needs the repository secrets `PYPI_USERNAME` and `PYPI_PASSWORD` (same as httpp)
 |---|---|
 | `src/third_party/mbedtls` | submodule, pinned to `v4.2.0` |
 | `cmake/mbedtls_config.h` | Mbed TLS user config (threading) |
-| `src/core/` | C++ core: `mbedtls_py::core` target, threading registration, digest/HMAC/X.509 helpers |
-| `src/mbedtls/` | Python package and the Cython module `_mbedtls.pyx` |
+| `include/`, `src/` | public headers and C++ core: `mbedtls_py::core` target, threading registration, digest/HMAC/X.509 helpers |
+| `src/bindings/python/mbedtls/` | Python package and the Cython module `_mbedtls.pyx` |
 | `examples/consumer` | smallest user of the installed package (also run in CI) |
-| `tests/` | `pytest` for Python, `tests/cpp/smoke.cpp` for the core (ctest) |
-| `tests/fixtures` | test certificates, regenerate with `tests/gen_x509_fixtures.sh` |
+| `tests/python`, `tests/cpp` | `pytest` for Python, `tests/cpp/smoke.cpp` for the core (ctest) |
+| `tests/data` | test certificates, regenerate with `tests/gen_x509_fixtures.sh` |
