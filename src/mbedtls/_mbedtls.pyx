@@ -18,6 +18,31 @@ cdef extern from "mbedtls_py_crypto.h":
     int mbedtls_py_hmac(const char *name, const uint8_t *key, size_t key_len, const uint8_t *data,
                         size_t data_len, uint8_t *out, size_t *out_len) nogil
 
+cdef extern from "mbedtls_py_x509.h":
+    enum: MBEDTLS_PY_X509_NAME_MAX
+    enum: MBEDTLS_PY_X509_SERIAL_MAX
+    ctypedef struct mbedtls_py_x509:
+        pass
+    ctypedef struct mbedtls_py_x509_info:
+        const uint8_t *der
+        size_t der_len
+        int version
+        int is_ca
+        char subject[1024]
+        char issuer[1024]
+        uint8_t serial[64]
+        size_t serial_len
+        int not_before[6]
+        int not_after[6]
+    int mbedtls_py_x509_parse(const uint8_t *buf, size_t len, int pem, mbedtls_py_x509 **out) nogil
+    void mbedtls_py_x509_free(mbedtls_py_x509 *chain) nogil
+    size_t mbedtls_py_x509_count(const mbedtls_py_x509 *chain) nogil
+    int mbedtls_py_x509_get_info(const mbedtls_py_x509 *chain, size_t i, mbedtls_py_x509_info *out) nogil
+    int mbedtls_py_x509_verify(const uint8_t *const *chain, const size_t *chain_len, size_t chain_n,
+                               const uint8_t *const *trust, const size_t *trust_len, size_t trust_n,
+                               const char *hostname, uint32_t *flags, char *info, size_t info_size) nogil
+    void mbedtls_py_x509_strerror(int code, char *buf, size_t size)
+
 cdef extern from "mbedtls/version.h":
     const char *mbedtls_version_get_string()
 
@@ -140,3 +165,93 @@ def random_bytes(n):
         return (<char *>buf)[:count]
     finally:
         free(buf)
+
+
+# --- X.509: the low-level half, the public API is mbedtls/x509.py ---
+
+cdef str _x509_error(int code):
+    cdef char text[256]
+    text[0] = 0
+    mbedtls_py_x509_strerror(code, text, sizeof(text))
+    msg = (<bytes>text).decode("ascii", "replace")
+    return f"{msg} [-0x{-code:04X}]" if code < 0 else msg
+
+
+def _x509_parse(data, bint pem):
+    """Parse PEM text (one or more certificates) or one DER certificate. Returns a list of
+    (der, version, is_ca, subject, issuer, serial, not_before, not_after), the times as (y, m, d, H, M, S) in UTC."""
+    cdef bytes buf = _as_bytes(data, "data")
+    cdef const uint8_t *src = <const uint8_t *><char *>buf
+    cdef size_t n = len(buf)
+    cdef mbedtls_py_x509 *chain = NULL
+    cdef mbedtls_py_x509_info info
+    cdef int ret
+    cdef size_t i, count
+    with nogil:
+        ret = mbedtls_py_x509_parse(src, n, pem, &chain)
+    if ret != 0:
+        raise ValueError(f"invalid certificate: {_x509_error(ret)}")
+    out = []
+    try:
+        count = mbedtls_py_x509_count(chain)
+        for i in range(count):
+            ret = mbedtls_py_x509_get_info(chain, i, &info)
+            if ret != 0:
+                raise ValueError(f"invalid certificate: {_x509_error(ret)}")
+            out.append((
+                (<char *>info.der)[:info.der_len],
+                info.version,
+                info.is_ca != 0,
+                (<bytes>info.subject).decode("utf-8", "replace"),
+                (<bytes>info.issuer).decode("utf-8", "replace"),
+                (<char *>info.serial)[:info.serial_len],
+                tuple([info.not_before[k] for k in range(6)]),
+                tuple([info.not_after[k] for k in range(6)]),
+            ))
+    finally:
+        mbedtls_py_x509_free(chain)
+    return out
+
+
+def _x509_verify(list chain, list trust, hostname):
+    """Verify DER ``chain[0]`` (the rest are intermediates) against the DER ``trust`` anchors. ``hostname`` is bytes
+    or None. Returns (status, flags, text): status 0 = verified, 1 = did not verify (flags and text say why)."""
+    cdef size_t cn = len(chain)
+    cdef size_t tn = len(trust)
+    cdef size_t i
+    cdef bytes item
+    cdef bytes host = hostname
+    cdef const char *host_c = NULL
+    cdef const uint8_t **ptrs = <const uint8_t **>malloc((cn + tn + 1) * sizeof(void *))
+    cdef size_t *lens = <size_t *>malloc((cn + tn + 1) * sizeof(size_t))
+    cdef char text[1024]
+    cdef uint32_t flags = 0
+    cdef int ret
+    if ptrs == NULL or lens == NULL:
+        free(ptrs)
+        free(lens)
+        raise MemoryError()
+    text[0] = 0
+    if host is not None:
+        host_c = host
+    try:
+        # `chain` and `trust` keep every bytes object alive while the GIL is released below.
+        for i in range(cn):
+            item = chain[i]
+            ptrs[i] = <const uint8_t *><char *>item
+            lens[i] = len(item)
+        for i in range(tn):
+            item = trust[i]
+            ptrs[cn + i] = <const uint8_t *><char *>item
+            lens[cn + i] = len(item)
+        with nogil:
+            ret = mbedtls_py_x509_verify(ptrs, lens, cn, ptrs + cn, lens + cn, tn, host_c, &flags, text,
+                                         sizeof(text))
+    finally:
+        free(ptrs)
+        free(lens)
+    if ret == 0:
+        return (0, 0, "")
+    if ret == 1:
+        return (1, flags, (<bytes>text).decode("utf-8", "replace"))
+    raise ValueError(f"invalid certificate: {_x509_error(ret)}")

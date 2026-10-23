@@ -2,6 +2,7 @@
 
 __version__ = "0.1.0"
 
+from . import x509
 from ._mbedtls import algorithms, digest, hmac, random_bytes, sha256, version
 
-__all__ = ["__version__", "algorithms", "digest", "hmac", "random_bytes", "sha256", "version"]
+__all__ = ["__version__", "algorithms", "digest", "hmac", "random_bytes", "sha256", "version", "x509"]

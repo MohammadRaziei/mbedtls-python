@@ -76,7 +76,7 @@ endif()
 add_subdirectory(${_mbedtls_dir} EXCLUDE_FROM_ALL)
 
 # One target for everything downstream: Mbed TLS + the threading registration.
-add_library(mbedtls_py_core STATIC src/core/threading.cpp src/core/crypto.cpp)
+add_library(mbedtls_py_core STATIC src/core/threading.cpp src/core/crypto.cpp src/core/x509.cpp)
 target_include_directories(mbedtls_py_core PUBLIC ${PROJECT_SOURCE_DIR}/src/core)
 target_link_libraries(mbedtls_py_core PUBLIC mbedtls mbedx509 tfpsacrypto Threads::Threads)
 add_library(mbedtls_py::core ALIAS mbedtls_py_core)
@@ -85,6 +85,7 @@ if(MBEDTLS_PY_BUILD_TESTS)
     enable_testing()
     add_executable(mbedtls_py_smoke tests/cpp/smoke.cpp)
     target_link_libraries(mbedtls_py_smoke PRIVATE mbedtls_py::core)
+    target_compile_definitions(mbedtls_py_smoke PRIVATE MBEDTLS_PY_FIXTURES_DIR="${PROJECT_SOURCE_DIR}/tests/fixtures")
     add_test(NAME smoke COMMAND mbedtls_py_smoke)
 endif()
 
@@ -99,7 +100,8 @@ if(NOT DEFINED SKBUILD AND PROJECT_IS_TOP_LEVEL)
     foreach(_root include tf-psa-crypto/include tf-psa-crypto/drivers/builtin/include)
         install(DIRECTORY ${_mbedtls_dir}/${_root}/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} FILES_MATCHING PATTERN "*.h")
     endforeach()
-    install(FILES src/core/mbedtls_py_threading.h src/core/mbedtls_py_crypto.h src/core/alt/threading_alt.h
+    install(FILES src/core/mbedtls_py_threading.h src/core/mbedtls_py_crypto.h src/core/mbedtls_py_x509.h
+                  src/core/alt/threading_alt.h
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
     install(FILES cmake/mbedtls_config.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mbedtls_py)
 

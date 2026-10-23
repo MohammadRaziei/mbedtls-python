@@ -7,7 +7,7 @@ separate free-threaded wheels (`cp313t`, `cp314t`, `cp315t`).
 Mbed TLS is a git submodule, built from source and linked **statically** into the extension, with hidden visibility:
 no system package, no DLL, and no symbol clash with another copy in the same process.
 
-**Status: level 3** (1: build system, thread safety, CI; 2: one-shot digests, HMAC, random bytes; 3: installable C++ package).
+**Status: level 5** (1: build system, thread safety, CI; 2: digests, HMAC, random bytes; 3: installable C++ package; 4: release workflow; 5: X.509).
 
 ```python
 import mbedtls
@@ -23,6 +23,25 @@ mbedtls.random_bytes(32)                # PSA random generator
 Input is `bytes`, `bytearray` or `memoryview` (anything else is a `TypeError`; an unknown algorithm is a `ValueError`).
 The GIL is released while computing. Everything is one-shot and stateless, so there is nothing to lock on your side;
 compare MACs with `hmac.compare_digest` from the standard library.
+
+### X.509
+
+```python
+from mbedtls.x509 import Certificate, load_pem_bundle, VerificationError
+
+leaf = Certificate.from_pem(pem_text)          # or Certificate.from_der(der_bytes)
+leaf.subject, leaf.issuer, leaf.serial_number, leaf.not_before, leaf.not_after, leaf.is_ca
+leaf.fingerprint()                             # sha256 of the DER, bytes
+
+roots = load_pem_bundle(ca_bundle_pem)         # every certificate of a bundle
+try:
+    leaf.verify(roots, intermediates=[inter], hostname="example.com")
+except VerificationError as e:
+    print(e.reasons, e.flags)
+```
+
+Certificates are immutable. `verify` uses Mbed TLS's default profile (SHA-2 signatures, RSA >= 2048 bits, common
+curves) and the current time; there is no CRL/OCSP support and no subjectAltName listing yet.
 
 ## Thread safety
 
@@ -56,13 +75,25 @@ target_link_libraries(app PRIVATE mbedtls_py::core)
 Call `mbedtls_py_threading_init()` before the first Mbed TLS / PSA call. `examples/consumer` is a complete project.
 The target carries the include path, the exact user config the libraries were built with and the system libraries.
 
+## Releasing
+
+`.github/workflows/orchestrator.yml` runs the C++ tests (with ThreadSanitizer), the prebuilt package and all wheels.
+
+- push to `master`: everything is built and the `__beta__` pre-release is refreshed with the artifacts.
+- push of a tag `vX.Y.Z`: the same, then a GitHub release and PyPI. The tag must equal `__version__` in
+  `src/mbedtls/__init__.py`, otherwise the run stops at the first step. Nothing is published unless every job passed.
+
+Needs the repository secrets `PYPI_USERNAME` and `PYPI_PASSWORD` (same as httpp). Steps: bump `__version__`, commit,
+`git tag vX.Y.Z && git push --tags`.
+
 ## Layout
 
 | Path | What |
 |---|---|
 | `src/third_party/mbedtls` | submodule, pinned to `v4.2.0` |
 | `cmake/mbedtls_config.h` | Mbed TLS user config (threading) |
-| `src/core/` | C++ core: `mbedtls_py::core` target, threading registration, digest/HMAC helpers |
+| `src/core/` | C++ core: `mbedtls_py::core` target, threading registration, digest/HMAC/X.509 helpers |
 | `src/mbedtls/` | Python package and the Cython module `_mbedtls.pyx` |
 | `examples/consumer` | smallest user of the installed package (also run in CI) |
 | `tests/` | `pytest` for Python, `tests/cpp/smoke.cpp` for the core (ctest) |
+| `tests/fixtures` | test certificates, regenerate with `tests/gen_x509_fixtures.sh` |

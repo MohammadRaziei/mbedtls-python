@@ -2,17 +2,40 @@
 // concurrent hashing, HMAC (volatile key slots) and the shared PSA random generator. Run under ThreadSanitizer in CI.
 #include <mbedtls_py_crypto.h>
 #include <mbedtls_py_threading.h>
+#include <mbedtls_py_x509.h>
 #include <psa/crypto.h>
 
 #include <atomic>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
+#include <iterator>
+#include <string>
 #include <thread>
 #include <vector>
 
 static const unsigned char kAbc[32] = {0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40,
                                        0xde, 0x5d, 0xae, 0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17,
                                        0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00, 0x15, 0xad};
+
+static std::string read_file(const char* name) {
+    std::ifstream f(std::string(MBEDTLS_PY_FIXTURES_DIR) + "/" + name, std::ios::binary);
+    return {std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>()};
+}
+
+// Parse a PEM certificate and hand back its DER (empty on failure).
+static std::string der_of(const char* name) {
+    const std::string pem = read_file(name);
+    mbedtls_py_x509* chain = nullptr;
+    std::string der;
+    if (mbedtls_py_x509_parse(reinterpret_cast<const unsigned char*>(pem.data()), pem.size(), 1, &chain) == 0) {
+        mbedtls_py_x509_info info;
+        if (mbedtls_py_x509_get_info(chain, 0, &info) == 0)
+            der.assign(reinterpret_cast<const char*>(info.der), info.der_len);
+    }
+    mbedtls_py_x509_free(chain);
+    return der;
+}
 
 int main() {
     mbedtls_py_threading_init();
@@ -41,8 +64,33 @@ int main() {
         }
     }
 
+    // X.509: parse the fixtures, then verify leaf -> int -> root from several threads (see tests/fixtures).
+    const std::string leaf = der_of("leaf.pem"), inter = der_of("int.pem"), root = der_of("root.pem");
+    if (leaf.empty() || inter.empty() || root.empty()) {
+        std::fprintf(stderr, "cannot parse the fixtures\n");
+        return 1;
+    }
+    auto p = [](const std::string& d) { return reinterpret_cast<const unsigned char*>(d.data()); };
+    const unsigned char* const chain[2] = {p(leaf), p(inter)};
+    const size_t chain_len[2] = {leaf.size(), inter.size()};
+    const unsigned char* const anchor[1] = {p(root)};
+    const size_t anchor_len[1] = {root.size()};
+
     std::atomic<int> failures{0};
-    auto work = [&failures] {
+    auto verify = [&] {
+        uint32_t flags = 0;
+        char info[512];
+        if (mbedtls_py_x509_verify(chain, chain_len, 2, anchor, anchor_len, 1, "leaf.example.test", &flags, info,
+                                   sizeof info) != 0)
+            ++failures;
+        // Without the intermediate it must be refused, and say why.
+        if (mbedtls_py_x509_verify(chain, chain_len, 1, anchor, anchor_len, 1, nullptr, &flags, info, sizeof info) !=
+                MBEDTLS_PY_X509_VERIFY_FAILED ||
+            flags == 0 || info[0] == '\0')
+            ++failures;
+    };
+    auto work = [&failures, &verify] {
+        for (int i = 0; i < 5; ++i) verify();
         for (int i = 0; i < 200; ++i) {
             unsigned char out[MBEDTLS_PY_MAX_DIGEST_SIZE], mac[MBEDTLS_PY_MAX_DIGEST_SIZE], rnd[32];
             size_t len = 0, mac_len = 0;
