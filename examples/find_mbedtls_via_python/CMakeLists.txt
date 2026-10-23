@@ -15,7 +15,7 @@ find_package(mbedtls_cpp CONFIG REQUIRED)
 
 # ponytail: same program as examples/consumer, not copied.
 add_executable(app ${CMAKE_CURRENT_LIST_DIR}/../consumer/main.cpp)
-target_link_libraries(app PRIVATE mbedtls_cpp::core)
+target_link_libraries(app PRIVATE mbedtls::cpp)
 
 enable_testing()
 add_test(NAME app COMMAND app)

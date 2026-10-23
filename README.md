@@ -69,7 +69,7 @@ relocatable package: static libraries, headers and a CMake config.
 
 ```cmake
 find_package(mbedtls_cpp CONFIG REQUIRED)        # CMAKE_PREFIX_PATH=<dir>
-target_link_libraries(app PRIVATE mbedtls_cpp::core)
+target_link_libraries(app PRIVATE mbedtls::cpp)
 ```
 
 Call `mbedtls_cpp_threading_init()` before the first Mbed TLS / PSA call. `examples/consumer` is a complete project.
@@ -92,10 +92,10 @@ Needs the repository secrets `PYPI_USERNAME` and `PYPI_PASSWORD` (same as httpp)
 |---|---|
 | `src/third_party/mbedtls` | submodule, pinned to `v4.2.0` |
 | `cmake/mbedtls_config.h` | Mbed TLS user config (threading) |
-| `include/`, `src/` | public headers and C++ core: `mbedtls_cpp::core` target, threading registration, digest/HMAC/X.509 helpers |
+| `include/`, `src/` | public headers and C++ core: `mbedtls::cpp` target, threading registration, digest/HMAC/X.509 helpers |
 | `src/bindings/python/mbedtls/` | Python package and the Cython module `_mbedtls_cy.pyx` |
 | `examples/consumer` | smallest user of the installed package (also run in CI) |
-| `tests/python`, `tests/cpp` | `pytest` for Python, `tests/cpp/smoke.cpp` for the core (ctest) |
+| `tests/python`, `tests/cpp` | `pytest` for Python, utest (`tests/utest`) for the core (ctest) |
 | `tests/data` | test certificates, regenerate with `tests/gen_x509_fixtures.sh` |
 
 ## Use from C++ (via pip)
@@ -108,7 +108,7 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 execute_process(COMMAND ${Python3_EXECUTABLE} -m mbedtls --cmake-dir
                 OUTPUT_VARIABLE mbedtls_cpp_DIR OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
 find_package(mbedtls_cpp CONFIG REQUIRED)
-target_link_libraries(app PRIVATE mbedtls_cpp::core)
+target_link_libraries(app PRIVATE mbedtls::cpp)
 ```
 
 ```sh

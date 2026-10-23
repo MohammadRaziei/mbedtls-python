@@ -12,7 +12,7 @@ if(DEFINED SKBUILD)
 else()
     set(_default_tests ${PROJECT_IS_TOP_LEVEL})
 endif()
-option(MBEDTLS_CPP_BUILD_TESTS "Build the C++ smoke test" ${_default_tests})
+option(MBEDTLS_CPP_BUILD_TESTS "Build the C++ unit tests (utest)" ${_default_tests})
 option(MBEDTLS_CPP_THREADING_ALT "Use the alt threading layer (always on for Windows) instead of pthread" OFF)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -79,14 +79,14 @@ add_subdirectory(${_mbedtls_dir} EXCLUDE_FROM_ALL)
 add_library(mbedtls_cpp_core STATIC src/threading.cpp src/crypto.cpp src/x509.cpp)
 target_include_directories(mbedtls_cpp_core PUBLIC ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(mbedtls_cpp_core PUBLIC mbedtls mbedx509 tfpsacrypto Threads::Threads)
-add_library(mbedtls_cpp::core ALIAS mbedtls_cpp_core)
+add_library(mbedtls::cpp ALIAS mbedtls_cpp_core)
 
 if(MBEDTLS_CPP_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
 
-# --- Install: relocatable C++ package (find_package(mbedtls_cpp CONFIG), target mbedtls_cpp::core) ---
+# --- Install: relocatable C++ package (find_package(mbedtls_cpp CONFIG), target mbedtls::cpp) ---
 # Two consumers: `cmake --install build --prefix <dir>` / `cpack` (see .github/workflows/prebuilt.yml), and the wheel,
 # which carries the same package inside mbedtls/ so that `pip install mbedtls` + `python -m mbedtls --cmake-dir` is
 # all a C++ project needs (mbedtls.get_cmake_dir() / get_include_dir() / get_lib_dir()).
@@ -151,7 +151,7 @@ if(DEFINED SKBUILD)
         set(Python_SOABI ${SKBUILD_SOABI})
     endif()
     python_add_library(_mbedtls_cy MODULE "${_mbedtls_cxx}" WITH_SOABI ${USE_SABI})
-    target_link_libraries(_mbedtls_cy PRIVATE mbedtls_cpp::core)
+    target_link_libraries(_mbedtls_cy PRIVATE mbedtls::cpp)
     if(UNIX AND NOT APPLE) # belt and braces next to hidden visibility
         target_link_options(_mbedtls_cy PRIVATE -Wl,--exclude-libs,ALL)
     endif()
