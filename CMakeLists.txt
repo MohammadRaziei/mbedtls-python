@@ -86,40 +86,53 @@ if(MBEDTLS_PY_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
-# --- Install: a prebuilt, relocatable C++ package (find_package(mbedtls_py CONFIG), target mbedtls_py::core) ---
-# Not part of the wheel build. `cmake --install build --prefix <dir>` or `cpack` (see .github/workflows/prebuilt.yml).
-if(NOT DEFINED SKBUILD AND PROJECT_IS_TOP_LEVEL)
+# --- Install: relocatable C++ package (find_package(mbedtls_py CONFIG), target mbedtls_py::core) ---
+# Two consumers: `cmake --install build --prefix <dir>` / `cpack` (see .github/workflows/prebuilt.yml), and the wheel,
+# which carries the same package inside mbedtls/ so that `pip install mbedtls` + `python -m mbedtls --cmake-dir` is
+# all a C++ project needs (mbedtls.get_cmake_dir() / get_include_dir() / get_lib_dir()).
+if(PROJECT_IS_TOP_LEVEL)
     include(GNUInstallDirs)
     include(CMakePackageConfigHelpers)
+    if(DEFINED SKBUILD)
+        set(_mbp_lib mbedtls/lib)
+        set(_mbp_inc mbedtls/include)
+        set(_mbp_cmake mbedtls/cmake)
+    else()
+        set(_mbp_lib ${CMAKE_INSTALL_LIBDIR})
+        set(_mbp_inc ${CMAKE_INSTALL_INCLUDEDIR})
+        set(_mbp_cmake ${CMAKE_INSTALL_LIBDIR}/cmake/mbedtls_py)
+    endif()
 
-    install(TARGETS mbedtls_py_core mbedtls mbedx509 tfpsacrypto ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    install(TARGETS mbedtls_py_core mbedtls mbedx509 tfpsacrypto ARCHIVE DESTINATION ${_mbp_lib})
     # The three include roots Mbed TLS itself puts on the include path (see its library/CMakeLists.txt).
     foreach(_root include tf-psa-crypto/include tf-psa-crypto/drivers/builtin/include)
-        install(DIRECTORY ${_mbedtls_dir}/${_root}/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} FILES_MATCHING PATTERN "*.h")
+        install(DIRECTORY ${_mbedtls_dir}/${_root}/ DESTINATION ${_mbp_inc} FILES_MATCHING PATTERN "*.h")
     endforeach()
     install(FILES include/mbedtls_py_threading.h include/mbedtls_py_crypto.h include/mbedtls_py_x509.h
                   src/alt/threading_alt.h
-            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-    install(FILES cmake/mbedtls_config.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mbedtls_py)
+            DESTINATION ${_mbp_inc})
+    install(FILES cmake/mbedtls_config.h DESTINATION ${_mbp_inc}/mbedtls_py)
 
     configure_package_config_file(cmake/mbedtls_py-config.cmake.in ${PROJECT_BINARY_DIR}/mbedtls_py-config.cmake
-        INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/mbedtls_py)
+        INSTALL_DESTINATION ${_mbp_cmake})
     write_basic_package_version_file(${PROJECT_BINARY_DIR}/mbedtls_py-config-version.cmake
         COMPATIBILITY SameMinorVersion)  # 0.x: a minor bump may break
     install(FILES ${PROJECT_BINARY_DIR}/mbedtls_py-config.cmake ${PROJECT_BINARY_DIR}/mbedtls_py-config-version.cmake
-            DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/mbedtls_py)
+            DESTINATION ${_mbp_cmake})
 
-    # ponytail: the archive is only as portable as the runner that built it (glibc of ubuntu-latest, macOS arch of
-    # macos-latest, no universal2). Upgrade path: build the Linux one in a manylinux container.
-    set(CPACK_PACKAGE_NAME mbedtls-py-core)
-    set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
-    set(CPACK_PACKAGE_FILE_NAME mbedtls-py-core-${PROJECT_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR})
-    if(WIN32)
-        set(CPACK_GENERATOR ZIP)
-    else()
-        set(CPACK_GENERATOR TGZ)
+    if(NOT DEFINED SKBUILD)
+        # ponytail: the archive is only as portable as the runner that built it (glibc of ubuntu-latest, macOS arch of
+        # macos-latest, no universal2). Upgrade path: build the Linux one in a manylinux container.
+        set(CPACK_PACKAGE_NAME mbedtls-py-core)
+        set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+        set(CPACK_PACKAGE_FILE_NAME mbedtls-py-core-${PROJECT_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR})
+        if(WIN32)
+            set(CPACK_GENERATOR ZIP)
+        else()
+            set(CPACK_GENERATOR TGZ)
+        endif()
+        include(CPack)
     endif()
-    include(CPack)
 endif()
 
 # --- Python extension (only under scikit-build-core, i.e. `pip install .` / cibuildwheel) ---

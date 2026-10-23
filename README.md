@@ -97,3 +97,22 @@ Needs the repository secrets `PYPI_USERNAME` and `PYPI_PASSWORD` (same as httpp)
 | `examples/consumer` | smallest user of the installed package (also run in CI) |
 | `tests/python`, `tests/cpp` | `pytest` for Python, `tests/cpp/smoke.cpp` for the core (ctest) |
 | `tests/data` | test certificates, regenerate with `tests/gen_x509_fixtures.sh` |
+
+## Use from C++ (via pip)
+
+The wheel carries the static C++ core, the Mbed TLS headers and a CMake package config, so `pip install mbedtls` is
+all a C++ project needs (same idea as `python -m nanobind --cmake_dir`):
+
+```cmake
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+execute_process(COMMAND ${Python3_EXECUTABLE} -m mbedtls --cmake-dir
+                OUTPUT_VARIABLE mbedtls_py_DIR OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+find_package(mbedtls_py CONFIG REQUIRED)
+target_link_libraries(app PRIVATE mbedtls_py::core)
+```
+
+```sh
+mbedtls --cmake-dir     # also: --include-dir, --lib-dir (python -m mbedtls ... works too)
+```
+
+A complete project: `examples/find_mbedtls_via_python`.

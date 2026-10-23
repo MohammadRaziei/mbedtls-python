@@ -4,7 +4,7 @@
 # keep build-tree paths in their properties and cannot be exported as they are.
 include(CMakeFindDependencyMacro)
 
-set(_mbedtls_py_libdir "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_LIBDIR@")
+set(_mbedtls_py_libdir "${PACKAGE_PREFIX_DIR}/@_mbp_lib@")
 # Order matters for static linking: each library needs the ones after it.
 set(_mbedtls_py_libs "")
 foreach(_name mbedtls_py_core mbedtls mbedx509 tfpsacrypto)
@@ -21,7 +21,7 @@ endif()
 
 # The same user config the libraries were built with: the layout of Mbed TLS structs (the threading mutex above
 # all) depends on it, so a consumer compiled without it would disagree with the library.
-set(_mbedtls_py_defs "TF_PSA_CRYPTO_USER_CONFIG_FILE=\"${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUDEDIR@/mbedtls_py/mbedtls_config.h\"")
+set(_mbedtls_py_defs "TF_PSA_CRYPTO_USER_CONFIG_FILE=\"${PACKAGE_PREFIX_DIR}/@_mbp_inc@/mbedtls_py/mbedtls_config.h\"")
 if(@MBEDTLS_PY_THREADING_ALT@)
     list(APPEND _mbedtls_py_defs MBEDTLS_PY_THREADING_ALT)
 endif()
@@ -29,7 +29,7 @@ endif()
 if(NOT TARGET mbedtls_py::core)
     add_library(mbedtls_py::core INTERFACE IMPORTED)
     set_target_properties(mbedtls_py::core PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_INCLUDEDIR@"
+        INTERFACE_INCLUDE_DIRECTORIES "${PACKAGE_PREFIX_DIR}/@_mbp_inc@"
         INTERFACE_COMPILE_DEFINITIONS "${_mbedtls_py_defs}"
         INTERFACE_LINK_LIBRARIES "${_mbedtls_py_libs}")
 endif()
