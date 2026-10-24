@@ -1,5 +1,5 @@
 // Smallest possible user of the installed package: SHA-256("abc") and an HMAC through the C++ classes.
-#include <mbedtls_cpp/crypto.hpp>
+#include <mbedtls.hpp>
 
 #include <cstdio>
 

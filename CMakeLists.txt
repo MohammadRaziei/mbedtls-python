@@ -76,7 +76,7 @@ endif()
 add_subdirectory(${_mbedtls_dir} EXCLUDE_FROM_ALL)
 
 # One target for everything downstream: Mbed TLS + the threading registration.
-add_library(mbedtls_cpp_core STATIC src/init.cpp src/crypto.cpp src/x509.cpp)
+add_library(mbedtls_cpp_core STATIC src/mbedtls.cpp)
 target_include_directories(mbedtls_cpp_core PUBLIC ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(mbedtls_cpp_core PUBLIC mbedtls mbedx509 tfpsacrypto Threads::Threads)
 add_library(mbedtls::cpp ALIAS mbedtls_cpp_core)
@@ -108,7 +108,7 @@ if(PROJECT_IS_TOP_LEVEL)
     foreach(_root include tf-psa-crypto/include tf-psa-crypto/drivers/builtin/include)
         install(DIRECTORY ${_mbedtls_dir}/${_root}/ DESTINATION ${_mbp_inc} FILES_MATCHING PATTERN "*.h")
     endforeach()
-    install(DIRECTORY include/mbedtls_cpp DESTINATION ${_mbp_inc})
+    install(FILES include/mbedtls.hpp DESTINATION ${_mbp_inc})
     install(FILES src/alt/threading_alt.h DESTINATION ${_mbp_inc})
     install(FILES cmake/mbedtls_config.h DESTINATION ${_mbp_inc}/mbedtls_cpp)
 

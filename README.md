@@ -47,7 +47,7 @@ curves) and the current time; there is no CRL/OCSP support and no subjectAltName
 
 TF-PSA-Crypto keeps process-wide state (the PSA random generator, key slots) that is only locked when its threading
 layer is on, so it is always on (`cmake/mbedtls_config.h`): pthread on POSIX, an `SRWLOCK` alt layer on Windows
-(`src/init.cpp`). CI runs a C++ stress test under ThreadSanitizer with both layers.
+(`src/mbedtls.cpp`). CI runs a C++ stress test under ThreadSanitizer with both layers.
 
 ## Build from a checkout
 
@@ -78,8 +78,7 @@ needs no change. `mbedtls::cpp` adds the C++ classes and links them. The targets
 user config the libraries were built with and the system libraries.
 
 ```cpp
-#include <mbedtls_cpp/crypto.hpp>
-#include <mbedtls_cpp/x509.hpp>
+#include <mbedtls.hpp>
 
 std::string sum = mbedtls_cpp::digest("sha256", "abc");   // or mbedtls_cpp::Digest / Hmac, reusable objects
 auto chain = mbedtls_cpp::Certificate::from_pem(pem);     // immutable values, no native handle to manage
@@ -107,7 +106,7 @@ Needs the repository secrets `PYPI_USERNAME` and `PYPI_PASSWORD` (same as httpp)
 |---|---|
 | `src/third_party/mbedtls` | submodule, pinned to `v4.2.0` |
 | `cmake/mbedtls_config.h` | Mbed TLS user config (threading) |
-| `include/`, `src/` | public headers (`mbedtls_cpp/*.hpp`) and the C++ core: `mbedtls::cpp` target, `init()`, `Digest`/`Hmac`/`Certificate` |
+| `include/`, `src/` | `include/mbedtls.hpp` + `src/mbedtls.cpp`, the C++ core: `mbedtls::cpp` target, `init()`, `Digest`/`Hmac`/`Certificate` |
 | `src/bindings/python/mbedtls/` | Python package and the Cython module `_mbedtls_cy.pyx` |
 | `examples/consumer` | smallest user of the installed package (also run in CI) |
 | `tests/python`, `tests/cpp` | `pytest` for Python, utest (`tests/utest`) for the core (ctest) |

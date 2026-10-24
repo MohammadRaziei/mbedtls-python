@@ -2,7 +2,7 @@
 
 # A drop-in for the config Mbed TLS installs itself: find_package(MbedTLS CONFIG) gives the same targets
 # (MbedTLS::mbedtls, MbedTLS::mbedx509, MbedTLS::tfpsacrypto, static) plus mbedtls::cpp, the C++ layer of this
-# project (mbedtls_cpp/*.hpp). The version is Mbed TLS's, so find_package(MbedTLS 4) works.
+# project (mbedtls.hpp). The version is Mbed TLS's, so find_package(MbedTLS 4) works.
 # Hand written on purpose: the upstream targets keep build-tree paths in their properties and cannot be exported as
 # they are.
 include(CMakeFindDependencyMacro)

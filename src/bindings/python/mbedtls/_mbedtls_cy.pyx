@@ -15,16 +15,16 @@ cdef extern from "<string_view>" namespace "std" nogil:
         string_view()
         string_view(const char *, size_t)
 
-cdef extern from "mbedtls_cpp/init.hpp" namespace "mbedtls_cpp":
+cdef extern from "mbedtls.hpp" namespace "mbedtls_cpp":
     void cpp_init "mbedtls_cpp::init"() except +
 
-cdef extern from "mbedtls_cpp/crypto.hpp" namespace "mbedtls_cpp":
+cdef extern from "mbedtls.hpp" namespace "mbedtls_cpp":
     vector[string] cpp_hash_algorithms "mbedtls_cpp::hash_algorithms"() except +
     string cpp_digest "mbedtls_cpp::digest"(string_view name, string_view data) except + nogil
     string cpp_hmac "mbedtls_cpp::hmac"(string_view name, string_view key, string_view data) except + nogil
     string cpp_random_bytes "mbedtls_cpp::random_bytes"(size_t n) except + nogil
 
-cdef extern from "mbedtls_cpp/x509.hpp" namespace "mbedtls_cpp":
+cdef extern from "mbedtls.hpp" namespace "mbedtls_cpp":
     cdef cppclass Time:
         int year, month, day, hour, minute, second
     cdef cppclass VerifyResult:
