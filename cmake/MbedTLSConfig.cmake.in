@@ -45,6 +45,8 @@ if(NOT TARGET MbedTLS::tfpsacrypto)
     set_target_properties(mbedtls::cpp PROPERTIES
         IMPORTED_LOCATION "${_mbedtls_lib_mbedtls_cpp_core}"
         INTERFACE_LINK_LIBRARIES MbedTLS::mbedtls
+        # mbedtls.hpp uses std::string_view: raise the consumer to C++17 (MSVC defaults to C++14 and fails otherwise)
+        INTERFACE_COMPILE_FEATURES cxx_std_17
         IMPORTED_LINK_INTERFACE_LANGUAGES CXX)
 endif()
 
