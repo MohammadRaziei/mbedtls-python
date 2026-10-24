@@ -4,10 +4,10 @@
 #include <cstdio>
 
 int main() {
-    const std::string sum = mbedtls_cpp::digest("sha256", "abc");
+    const std::string sum = mbedtls::digest("sha256", "abc");
     for (unsigned char c : sum) std::printf("%02x", c);
     std::printf("\n");
 
-    const mbedtls_cpp::Hmac mac("sha256", "key");  // reusable: same key, many messages
+    const mbedtls::Hmac mac("sha256", "key");  // reusable: same key, many messages
     return sum.size() == 32 && static_cast<unsigned char>(sum[0]) == 0xba && mac.compute("a") != mac.compute("b") ? 0 : 1;
 }

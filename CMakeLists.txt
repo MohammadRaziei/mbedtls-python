@@ -1,15 +1,9 @@
 cmake_minimum_required(VERSION 3.26)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-include(DynamicVersion)
+include(PyProject)  # PyProject_NAME / _VERSION / _DESCRIPTION, read from pyproject.toml: the one version of the project
 
-# One version for everything: the MBEDTLS_CPP_VERSION_* macros of include/mbedtls.hpp (pyproject.toml reads them too).
-extract_version_string(
-    HEADER_FILE ${CMAKE_CURRENT_LIST_DIR}/include/mbedtls.hpp
-    VERSION_PREFIX MBEDTLS_CPP_
-    OUTPUT_VAR PROJECT_VERSION
-)
-project(mbedtls_python VERSION ${PROJECT_VERSION} LANGUAGES C CXX)
+project(mbedtls_python VERSION ${PyProject_VERSION} LANGUAGES C CXX)
 message(STATUS "Project: ${PROJECT_NAME}@v${PROJECT_VERSION}")
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)

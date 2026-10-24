@@ -7,7 +7,7 @@
 #include "common.hpp"
 #include "utest.h"
 
-using namespace mbedtls_cpp;
+using namespace mbedtls;
 
 // Chain leaf -> int -> root from tests/data (regenerate with tests/gen_x509_fixtures.sh).
 struct Chain {

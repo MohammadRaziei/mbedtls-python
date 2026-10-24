@@ -13,7 +13,7 @@ DATA = [b"", b"abc", b"x" * 1000, bytes(range(256)) * 17]
 
 def test_versions():
     assert re.fullmatch(r"\d+\.\d+\.\d+", mbedtls.__version__)
-    assert re.fullmatch(r"\d+\.\d+\.\d+", mbedtls.version())
+    assert re.fullmatch(r"\d+\.\d+\.\d+", mbedtls.__mbedtls_version__)
 
 
 def test_algorithms():

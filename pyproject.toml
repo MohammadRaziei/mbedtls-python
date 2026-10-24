@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-    "scikit-build-core[pyproject]>=1.1",  # [[tool.dynamic-metadata]] (see below)
+    "scikit-build-core>=1.1",
     "cython>=3.1",  # freethreading_compatible, automatic limited API
     "cython-cmake",
     "jsonschema",  # jsonschema + jinja2: Mbed TLS's make_generated_files.py (see CMakeLists.txt)
@@ -10,7 +10,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "mbedtls"
-dynamic = ["version"]
+version = "0.1.0"
 description = "Python bindings for Mbed TLS: statically linked, thread-safe, one abi3 wheel for CPython 3.9+"
 authors = [
     {name = "Mohammad Raziei", email = "mohammadraziei1375@gmail.com"},
@@ -60,17 +60,6 @@ sdist.include = ["src/third_party/mbedtls/**/*"]
 
 [tool.scikit-build.install]
 strip = true
-
-[[tool.dynamic-metadata]]
-field = "version"
-provider = "scikit_build_core.metadata.regex"
-input = "include/mbedtls.hpp"
-regex = '''(?sx)
-\#define \s+ MBEDTLS_CPP_VERSION_MAJOR \s+ (?P<major>\d+) .*?
-\#define \s+ MBEDTLS_CPP_VERSION_MINOR \s+ (?P<minor>\d+) .*?
-\#define \s+ MBEDTLS_CPP_VERSION_PATCH \s+ (?P<patch>\d+) .*?
-'''
-result = "{major}.{minor}.{patch}"
 
 [tool.cibuildwheel]
 skip = "*i686*"

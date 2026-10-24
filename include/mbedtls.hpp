@@ -3,13 +3,6 @@
 // std::string_view and comes out as std::string: both are plain byte containers here, embedded NULs included.
 // Errors are exceptions, derived from std types so that Cython maps them to ValueError / RuntimeError by itself.
 // Implementation: src/mbedtls.cpp.
-//
-// The version below is the one version of the whole project: pyproject.toml, CMakeLists.txt (PROJECT_VERSION), the
-// CI workflows and `python version.py` all parse the MBEDTLS_CPP_VERSION_* macros, so keep them as plain
-// `#define NAME NUMBER` lines. Change it with `python version.py` (see --help), not by hand.
-#define MBEDTLS_CPP_VERSION_MAJOR 0
-#define MBEDTLS_CPP_VERSION_MINOR 1
-#define MBEDTLS_CPP_VERSION_PATCH 0
 
 #include <cstddef>
 #include <cstdint>
@@ -18,7 +11,14 @@
 #include <string_view>
 #include <vector>
 
-namespace mbedtls_cpp {
+namespace mbedtls {
+
+// ---- version ----
+
+// The version of Mbed TLS itself (what this library was built against), not of this project: that one is the
+// `version` of pyproject.toml.
+std::string version_string();  // "4.2.0"
+uint32_t version_hex();        // 0x04020000: major, minor, patch, one byte each (MBEDTLS_VERSION_NUMBER)
 
 // ---- errors ----
 // Mbed TLS / PSA reported a failure. code() is the (negative) psa_status_t or Mbed TLS error code.
@@ -150,4 +150,4 @@ private:
     Time not_before_, not_after_;
 };
 
-}  // namespace mbedtls_cpp
+}  // namespace mbedtls

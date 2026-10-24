@@ -12,7 +12,8 @@ no system package, no DLL, and no symbol clash with another copy in the same pro
 ```python
 import mbedtls
 
-mbedtls.version()                       # "4.2.0"  (the Mbed TLS this wheel was built against)
+mbedtls.__mbedtls_version__             # "4.2.0"  (the Mbed TLS this wheel was built against)
+mbedtls.__version__                     # "0.1.0"  (this Python package)
 mbedtls.algorithms                      # ("md5", "sha1", "sha224", "sha256", "sha384", "sha512", "sha3_224", ...)
 mbedtls.digest("sha3_256", b"abc")      # bytes; names are spelled like hashlib's
 mbedtls.sha256(b"abc")                  # shorthand for digest("sha256", ...)
@@ -80,13 +81,13 @@ user config the libraries were built with and the system libraries.
 ```cpp
 #include <mbedtls.hpp>
 
-std::string sum = mbedtls_cpp::digest("sha256", "abc");   // or mbedtls_cpp::Digest / Hmac, reusable objects
-auto chain = mbedtls_cpp::Certificate::from_pem(pem);     // immutable values, no native handle to manage
+std::string sum = mbedtls::digest("sha256", "abc");   // or mbedtls::Digest / Hmac, reusable objects
+auto chain = mbedtls::Certificate::from_pem(pem);     // immutable values, no native handle to manage
 auto result = chain[0].verify(trusted, intermediates, "example.org");   // result.ok / .flags / .info
 ```
 
 Errors are exceptions: `UnknownAlgorithm` and `CertificateError` (`std::invalid_argument`), `Error`
-(`std::runtime_error`, a failed PSA call). `mbedtls_cpp::init()` runs on first use; call it yourself before using the
+(`std::runtime_error`, a failed PSA call). `mbedtls::init()` runs on first use; call it yourself before using the
 Mbed TLS / PSA C API directly. `examples/consumer` is a complete project.
 
 ## Releasing
@@ -94,13 +95,14 @@ Mbed TLS / PSA C API directly. `examples/consumer` is a complete project.
 `.github/workflows/orchestrator.yml` runs the C++ tests (with ThreadSanitizer), the prebuilt package and all wheels.
 
 - push to `master`: everything is built and the `__beta__` pre-release is refreshed with the artifacts.
-- push of a tag `vX.Y.Z`: the same, then a GitHub release and PyPI. The tag must equal `python version.py`,
+- push of a tag `vX.Y.Z`: the same, then a GitHub release and PyPI. The tag must equal the `version` in `pyproject.toml`,
   otherwise the run stops at the first step. Nothing is published unless every job passed.
 
-Needs the repository secrets `PYPI_USERNAME` and `PYPI_PASSWORD` (same as httpp). The version lives in one place, the
-`MBEDTLS_CPP_VERSION_*` macros of `include/mbedtls.hpp`; `pyproject.toml`, CMake and CI all read it from there.
-Steps: `python version.py tag create minor` (or `major`, `patch`, `X.Y.Z`: bumps, commits and tags), then
-`git push --follow-tags`. `python version.py --help` lists the rest (`tag set` takes the version from the last tag).
+Needs the repository secrets `PYPI_USERNAME` and `PYPI_PASSWORD` (same as httpp). The version of this project lives in
+one place, `version = "X.Y.Z"` in `pyproject.toml`: the wheel, CMake (`cmake/PyProject.cmake`, `PROJECT_VERSION`) and CI
+all read it from there; `mbedtls.__version__` is that version, `mbedtls.__mbedtls_version__` (C++:
+`mbedtls::version_string()` and `mbedtls::version_hex()`) is the version of Mbed TLS itself. Steps: change `version`,
+commit, `git tag vX.Y.Z && git push --follow-tags`.
 
 ## Layout
 

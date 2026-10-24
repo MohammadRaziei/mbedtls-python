@@ -9,6 +9,7 @@
 #include <mbedtls/build_info.h>
 #include <mbedtls/error.h>
 #include <mbedtls/platform_util.h>
+#include <mbedtls/version.h>
 #include <mbedtls/x509_crt.h>
 #include <psa/crypto.h>
 
@@ -49,11 +50,16 @@ int cond_wait(mbedtls_platform_condition_variable_t* c, mbedtls_platform_mutex_t
 } // namespace
 #endif
 
-namespace mbedtls_cpp {
+namespace mbedtls {
 
 namespace {
 const unsigned char* bytes(std::string_view s) { return reinterpret_cast<const unsigned char*>(s.data()); }
 }  // namespace
+
+// ---- version ----
+
+std::string version_string() { return mbedtls_version_get_string(); }
+uint32_t version_hex() { return mbedtls_version_get_number(); }
 
 // ---- init ----
 
@@ -287,4 +293,4 @@ VerifyResult Certificate::verify_impl(const std::vector<Certificate>& trusted,
     return result;
 }
 
-}  // namespace mbedtls_cpp
+}  // namespace mbedtls

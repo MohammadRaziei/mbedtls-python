@@ -1,6 +1,6 @@
 import argparse
 
-from . import __version__, get_cmake_dir, get_include_dir, get_lib_dir, version
+from . import __mbedtls_version__, __version__, get_cmake_dir, get_include_dir, get_lib_dir
 
 
 def cli():
@@ -15,7 +15,7 @@ def cli():
         if flag:
             print(getter())
             return
-    print(f"mbedtls {__version__} (Mbed TLS {version()})")
+    print(f"mbedtls {__version__} (Mbed TLS {__mbedtls_version__})")
 
 
 if __name__ == "__main__":

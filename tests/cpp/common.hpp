@@ -11,7 +11,7 @@ inline std::string read_file(const char* name) {
 }
 
 // The first certificate of a PEM file in tests/data.
-inline mbedtls_cpp::Certificate load(const char* name) { return mbedtls_cpp::Certificate::from_pem(read_file(name)).at(0); }
+inline mbedtls::Certificate load(const char* name) { return mbedtls::Certificate::from_pem(read_file(name)).at(0); }
 
 // True when f() throws an E (utest has no ASSERT_THROW).
 template <class E, class F>

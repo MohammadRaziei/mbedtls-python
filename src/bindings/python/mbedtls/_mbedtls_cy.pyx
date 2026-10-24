@@ -1,7 +1,7 @@
 # cython: language_level=3, freethreading_compatible=True
 # Stable-ABI (abi3, cp39) safe: no typed memoryviews (Py_buffer is only in the limited API from 3.11), no
 # PyObject internals. Input is read in place when it is `bytes`, copied once otherwise. This module is a thin layer over
-# the C++ classes in include/mbedtls_cpp: C++ exceptions become Python ones (std::invalid_argument -> ValueError,
+# the C++ classes in include/mbedtls.hpp: C++ exceptions become Python ones (std::invalid_argument -> ValueError,
 # std::runtime_error -> RuntimeError). Everything here is stateless, so it is safe to call from any number of threads
 # (the PSA state underneath is locked, see cmake/mbedtls_config.h).
 from libc.stddef cimport size_t
@@ -15,16 +15,17 @@ cdef extern from "<string_view>" namespace "std" nogil:
         string_view()
         string_view(const char *, size_t)
 
-cdef extern from "mbedtls.hpp" namespace "mbedtls_cpp":
-    void cpp_init "mbedtls_cpp::init"() except +
+cdef extern from "mbedtls.hpp" namespace "mbedtls":
+    string cpp_version_string "mbedtls::version_string"() except +
+    void cpp_init "mbedtls::init"() except +
 
-cdef extern from "mbedtls.hpp" namespace "mbedtls_cpp":
-    vector[string] cpp_hash_algorithms "mbedtls_cpp::hash_algorithms"() except +
-    string cpp_digest "mbedtls_cpp::digest"(string_view name, string_view data) except + nogil
-    string cpp_hmac "mbedtls_cpp::hmac"(string_view name, string_view key, string_view data) except + nogil
-    string cpp_random_bytes "mbedtls_cpp::random_bytes"(size_t n) except + nogil
+cdef extern from "mbedtls.hpp" namespace "mbedtls":
+    vector[string] cpp_hash_algorithms "mbedtls::hash_algorithms"() except +
+    string cpp_digest "mbedtls::digest"(string_view name, string_view data) except + nogil
+    string cpp_hmac "mbedtls::hmac"(string_view name, string_view key, string_view data) except + nogil
+    string cpp_random_bytes "mbedtls::random_bytes"(size_t n) except + nogil
 
-cdef extern from "mbedtls.hpp" namespace "mbedtls_cpp":
+cdef extern from "mbedtls.hpp" namespace "mbedtls":
     cdef cppclass Time:
         int year, month, day, hour, minute, second
     cdef cppclass VerifyResult:
@@ -48,9 +49,6 @@ cdef extern from "mbedtls.hpp" namespace "mbedtls_cpp":
         VerifyResult verify(const vector[Certificate] &trusted, const vector[Certificate] &intermediates) except + nogil
         VerifyResult verify(const vector[Certificate] &trusted, const vector[Certificate] &intermediates,
                             string_view hostname) except + nogil
-
-cdef extern from "mbedtls/version.h":
-    const char *mbedtls_version_get_string()
 
 # Threading layer + psa_crypto_init(), before any other Mbed TLS call (the C++ side would also do it on first use).
 try:
@@ -87,13 +85,14 @@ cdef str _text(const string &s):
     return _bytes(s).decode("utf-8", "replace")
 
 
+cdef string _mbedtls_version = cpp_version_string()
+__mbedtls_version__ = _bytes(_mbedtls_version).decode("ascii")
+"""The Mbed TLS version this extension was built against, e.g. ``"4.2.0"`` (``__version__`` of the package is this
+Python package's own version)."""
+
+
 cdef inline string_view _view(bytes b):
     return string_view(<const char *>b, len(b))
-
-
-def version():
-    """The Mbed TLS version this extension was built against, e.g. ``"4.2.0"``."""
-    return mbedtls_version_get_string().decode("ascii")
 
 
 def digest(name, data):

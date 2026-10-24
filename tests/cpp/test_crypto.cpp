@@ -1,5 +1,6 @@
 #include <mbedtls.hpp>
 #include <mbedtls.hpp>
+#include <mbedtls/build_info.h>
 #include <psa/crypto.h>
 
 #include <atomic>
@@ -9,12 +10,19 @@
 #include "common.hpp"
 #include "utest.h"
 
-using namespace mbedtls_cpp;
+using namespace mbedtls;
 
 static const unsigned char kAbc[32] = {0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40,
                                        0xde, 0x5d, 0xae, 0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17,
                                        0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00, 0x15, 0xad};
 static const std::string kAbcDigest(reinterpret_cast<const char*>(kAbc), 32);
+
+// The version of Mbed TLS itself, not of this project.
+UTEST(version, matches_mbedtls) {
+    ASSERT_TRUE(version_string() == MBEDTLS_VERSION_STRING);
+    ASSERT_EQ(version_hex(), (uint32_t)MBEDTLS_VERSION_NUMBER);
+    ASSERT_EQ(version_hex() >> 24, (uint32_t)MBEDTLS_VERSION_MAJOR);
+}
 
 UTEST(crypto, init_is_idempotent_and_psa_is_usable) {
     init();

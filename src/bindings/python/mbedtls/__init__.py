@@ -3,8 +3,8 @@
 import os as _os
 
 try:
-    # The version scikit-build-core wrote into this wheel's metadata (read from include/mbedtls.hpp at build time):
-    # never hardcoded here, so it cannot drift from the release.
+    # This Python package's own version: the one in the wheel's metadata, written from pyproject.toml. Never hardcoded
+    # here, so it cannot drift from the release. (__mbedtls_version__, below, is the Mbed TLS it contains.)
     from importlib.metadata import version as _pkg_version
 
     __version__ = _pkg_version("mbedtls")
@@ -30,7 +30,7 @@ def get_lib_dir() -> str:
 
 
 from . import x509
-from ._mbedtls_cy import algorithms, digest, hmac, random_bytes, sha256, version
+from ._mbedtls_cy import __mbedtls_version__, algorithms, digest, hmac, random_bytes, sha256
 
-__all__ = ["__version__", "algorithms", "digest", "get_cmake_dir", "get_include_dir", "get_lib_dir", "hmac",
-           "random_bytes", "sha256", "version", "x509"]
+__all__ = ["__mbedtls_version__", "__version__", "algorithms", "digest", "get_cmake_dir", "get_include_dir", "get_lib_dir", "hmac",
+           "random_bytes", "sha256", "x509"]

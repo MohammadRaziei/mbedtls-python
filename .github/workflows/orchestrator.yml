@@ -1,7 +1,7 @@
 name: Orchestration & Release
 
 # push to master  -> build everything, refresh the `__beta__` pre-release
-# push of a v* tag -> the same, then a real GitHub release and PyPI (the tag must match `python version.py`)
+# push of a v* tag -> the same, then a real GitHub release and PyPI (the tag must match `version` in pyproject.toml)
 
 on:
   workflow_dispatch:
@@ -28,7 +28,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          export version_string="$(python version.py | tr -d '\n')"
+          export version_string="$(sed -n 's/^version = "\([0-9][0-9.]*\)"$/\1/p' pyproject.toml | head -n 1)"
+          [[ -n "${version_string}" ]] || (echo "❌ No literal version = \"X.Y.Z\" in pyproject.toml" && exit 1)
           echo "version_string=${version_string}" | tee -a "$GITHUB_OUTPUT"
           if [[ "${{ github.ref }}" =~ ^refs/tags/v.*$ ]]; then
             TAG_NAME="${GITHUB_REF#refs/tags/}"
