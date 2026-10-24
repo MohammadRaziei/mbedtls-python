@@ -1,7 +1,7 @@
 name: Orchestration & Release
 
 # push to master  -> build everything, refresh the `__beta__` pre-release
-# push of a v* tag -> the same, then a real GitHub release and PyPI (the tag must match __version__)
+# push of a v* tag -> the same, then a real GitHub release and PyPI (the tag must match `python version.py`)
 
 on:
   workflow_dispatch:
@@ -28,8 +28,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          export version_string="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' src/bindings/python/mbedtls/__init__.py)"
-          [[ -n "${version_string}" ]] || (echo "❌ No __version__ in src/bindings/python/mbedtls/__init__.py" && exit 1)
+          export version_string="$(python version.py | tr -d '\n')"
           echo "version_string=${version_string}" | tee -a "$GITHUB_OUTPUT"
           if [[ "${{ github.ref }}" =~ ^refs/tags/v.*$ ]]; then
             TAG_NAME="${GITHUB_REF#refs/tags/}"

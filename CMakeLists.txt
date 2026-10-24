@@ -1,9 +1,16 @@
 cmake_minimum_required(VERSION 3.26)
 
-# One version for everything: the Python package's (src/bindings/python/mbedtls/__init__.py, also read by pyproject.toml).
-file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings/python/mbedtls/__init__.py _version_line REGEX "^__version__")
-string(REGEX REPLACE ".*\"([0-9]+\\.[0-9]+\\.[0-9]+)\".*" "\\1" MBEDTLS_CPP_VERSION "${_version_line}")
-project(mbedtls_python VERSION ${MBEDTLS_CPP_VERSION} LANGUAGES C CXX)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+include(DynamicVersion)
+
+# One version for everything: the MBEDTLS_CPP_VERSION_* macros of include/mbedtls.hpp (pyproject.toml reads them too).
+extract_version_string(
+    HEADER_FILE ${CMAKE_CURRENT_LIST_DIR}/include/mbedtls.hpp
+    VERSION_PREFIX MBEDTLS_CPP_
+    OUTPUT_VAR PROJECT_VERSION
+)
+project(mbedtls_python VERSION ${PROJECT_VERSION} LANGUAGES C CXX)
+message(STATUS "Project: ${PROJECT_NAME}@v${PROJECT_VERSION}")
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 

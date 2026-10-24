@@ -3,6 +3,14 @@
 // std::string_view and comes out as std::string: both are plain byte containers here, embedded NULs included.
 // Errors are exceptions, derived from std types so that Cython maps them to ValueError / RuntimeError by itself.
 // Implementation: src/mbedtls.cpp.
+//
+// The version below is the one version of the whole project: pyproject.toml, CMakeLists.txt (PROJECT_VERSION), the
+// CI workflows and `python version.py` all parse the MBEDTLS_CPP_VERSION_* macros, so keep them as plain
+// `#define NAME NUMBER` lines. Change it with `python version.py` (see --help), not by hand.
+#define MBEDTLS_CPP_VERSION_MAJOR 0
+#define MBEDTLS_CPP_VERSION_MINOR 1
+#define MBEDTLS_CPP_VERSION_PATCH 0
+
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>

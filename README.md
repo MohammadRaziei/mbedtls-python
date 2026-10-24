@@ -94,11 +94,13 @@ Mbed TLS / PSA C API directly. `examples/consumer` is a complete project.
 `.github/workflows/orchestrator.yml` runs the C++ tests (with ThreadSanitizer), the prebuilt package and all wheels.
 
 - push to `master`: everything is built and the `__beta__` pre-release is refreshed with the artifacts.
-- push of a tag `vX.Y.Z`: the same, then a GitHub release and PyPI. The tag must equal `__version__` in
-  `src/bindings/python/mbedtls/__init__.py`, otherwise the run stops at the first step. Nothing is published unless every job passed.
+- push of a tag `vX.Y.Z`: the same, then a GitHub release and PyPI. The tag must equal `python version.py`,
+  otherwise the run stops at the first step. Nothing is published unless every job passed.
 
-Needs the repository secrets `PYPI_USERNAME` and `PYPI_PASSWORD` (same as httpp). Steps: bump `__version__`, commit,
-`git tag vX.Y.Z && git push --tags`.
+Needs the repository secrets `PYPI_USERNAME` and `PYPI_PASSWORD` (same as httpp). The version lives in one place, the
+`MBEDTLS_CPP_VERSION_*` macros of `include/mbedtls.hpp`; `pyproject.toml`, CMake and CI all read it from there.
+Steps: `python version.py tag create minor` (or `major`, `patch`, `X.Y.Z`: bumps, commits and tags), then
+`git push --follow-tags`. `python version.py --help` lists the rest (`tag set` takes the version from the last tag).
 
 ## Layout
 
