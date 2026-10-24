@@ -8,4 +8,6 @@
 | `mbedtls-VERSION_STRING.tar.gz` | sdist, carries the Mbed TLS sources |
 | `mbedtls-cpp-core-VERSION_STRING-<OS>-<arch>.*` | prebuilt C++ core for `find_package(MbedTLS CONFIG)`, see the [README](https://github.com/MohammadRaziei/mbedtls-python#use-the-c-core-without-building-mbed-tls) |
 
+Changes: [CHANGELOG](https://github.com/MohammadRaziei/mbedtls-python/blob/RELEASE_NAME/CHANGELOG.md)
+
 Source: [zip](https://github.com/MohammadRaziei/mbedtls-python/archive/refs/tags/RELEASE_NAME.zip), [tar.gz](https://github.com/MohammadRaziei/mbedtls-python/archive/refs/tags/RELEASE_NAME.tar.gz) (these do not contain the Mbed TLS submodule: use the sdist, or clone with `--recurse-submodules`).
