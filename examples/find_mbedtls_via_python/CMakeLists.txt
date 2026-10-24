@@ -8,10 +8,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 execute_process(
     COMMAND ${Python3_EXECUTABLE} -m mbedtls --cmake-dir
-    OUTPUT_VARIABLE mbedtls_cpp_DIR
+    OUTPUT_VARIABLE MbedTLS_DIR
     OUTPUT_STRIP_TRAILING_WHITESPACE
     COMMAND_ERROR_IS_FATAL ANY)
-find_package(mbedtls_cpp CONFIG REQUIRED)
+find_package(MbedTLS CONFIG REQUIRED)
 
 # ponytail: same program as examples/consumer, not copied.
 add_executable(app ${CMAKE_CURRENT_LIST_DIR}/../consumer/main.cpp)

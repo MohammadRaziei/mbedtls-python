@@ -47,7 +47,7 @@ curves) and the current time; there is no CRL/OCSP support and no subjectAltName
 
 TF-PSA-Crypto keeps process-wide state (the PSA random generator, key slots) that is only locked when its threading
 layer is on, so it is always on (`cmake/mbedtls_config.h`): pthread on POSIX, an `SRWLOCK` alt layer on Windows
-(`src/threading.cpp`). CI runs a C++ stress test under ThreadSanitizer with both layers.
+(`src/init.cpp`). CI runs a C++ stress test under ThreadSanitizer with both layers.
 
 ## Build from a checkout
 
@@ -68,12 +68,27 @@ Forgot `--recurse-submodules`? `git submodule update --init --recursive`.
 relocatable package: static libraries, headers and a CMake config.
 
 ```cmake
-find_package(mbedtls_cpp CONFIG REQUIRED)        # CMAKE_PREFIX_PATH=<dir>
+find_package(MbedTLS CONFIG REQUIRED)        # CMAKE_PREFIX_PATH=<dir>
 target_link_libraries(app PRIVATE mbedtls::cpp)
 ```
 
-Call `mbedtls_cpp_threading_init()` before the first Mbed TLS / PSA call. `examples/consumer` is a complete project.
-The target carries the include path, the exact user config the libraries were built with and the system libraries.
+The package is a drop-in for the config Mbed TLS installs itself: `find_package(MbedTLS 4 CONFIG)` also gives
+`MbedTLS::mbedtls`, `MbedTLS::mbedx509` and `MbedTLS::tfpsacrypto` (static), so a project that already links those
+needs no change. `mbedtls::cpp` adds the C++ classes and links them. The targets carry the include path, the exact
+user config the libraries were built with and the system libraries.
+
+```cpp
+#include <mbedtls_cpp/crypto.hpp>
+#include <mbedtls_cpp/x509.hpp>
+
+std::string sum = mbedtls_cpp::digest("sha256", "abc");   // or mbedtls_cpp::Digest / Hmac, reusable objects
+auto chain = mbedtls_cpp::Certificate::from_pem(pem);     // immutable values, no native handle to manage
+auto result = chain[0].verify(trusted, intermediates, "example.org");   // result.ok / .flags / .info
+```
+
+Errors are exceptions: `UnknownAlgorithm` and `CertificateError` (`std::invalid_argument`), `Error`
+(`std::runtime_error`, a failed PSA call). `mbedtls_cpp::init()` runs on first use; call it yourself before using the
+Mbed TLS / PSA C API directly. `examples/consumer` is a complete project.
 
 ## Releasing
 
@@ -92,7 +107,7 @@ Needs the repository secrets `PYPI_USERNAME` and `PYPI_PASSWORD` (same as httpp)
 |---|---|
 | `src/third_party/mbedtls` | submodule, pinned to `v4.2.0` |
 | `cmake/mbedtls_config.h` | Mbed TLS user config (threading) |
-| `include/`, `src/` | public headers and C++ core: `mbedtls::cpp` target, threading registration, digest/HMAC/X.509 helpers |
+| `include/`, `src/` | public headers (`mbedtls_cpp/*.hpp`) and the C++ core: `mbedtls::cpp` target, `init()`, `Digest`/`Hmac`/`Certificate` |
 | `src/bindings/python/mbedtls/` | Python package and the Cython module `_mbedtls_cy.pyx` |
 | `examples/consumer` | smallest user of the installed package (also run in CI) |
 | `tests/python`, `tests/cpp` | `pytest` for Python, utest (`tests/utest`) for the core (ctest) |
@@ -106,8 +121,8 @@ all a C++ project needs (same idea as `python -m nanobind --cmake_dir`):
 ```cmake
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 execute_process(COMMAND ${Python3_EXECUTABLE} -m mbedtls --cmake-dir
-                OUTPUT_VARIABLE mbedtls_cpp_DIR OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
-find_package(mbedtls_cpp CONFIG REQUIRED)
+                OUTPUT_VARIABLE MbedTLS_DIR OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+find_package(MbedTLS CONFIG REQUIRED)
 target_link_libraries(app PRIVATE mbedtls::cpp)
 ```
 

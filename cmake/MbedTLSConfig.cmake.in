@@ -1,0 +1,54 @@
+@PACKAGE_INIT@
+
+# A drop-in for the config Mbed TLS installs itself: find_package(MbedTLS CONFIG) gives the same targets
+# (MbedTLS::mbedtls, MbedTLS::mbedx509, MbedTLS::tfpsacrypto, static) plus mbedtls::cpp, the C++ layer of this
+# project (mbedtls_cpp/*.hpp). The version is Mbed TLS's, so find_package(MbedTLS 4) works.
+# Hand written on purpose: the upstream targets keep build-tree paths in their properties and cannot be exported as
+# they are.
+include(CMakeFindDependencyMacro)
+
+set(_mbedtls_libdir "${PACKAGE_PREFIX_DIR}/@_mbp_lib@")
+set(_mbedtls_incdir "${PACKAGE_PREFIX_DIR}/@_mbp_inc@")
+foreach(_name tfpsacrypto mbedx509 mbedtls mbedtls_cpp_core)
+    find_library(_mbedtls_lib_${_name} NAMES ${_name} PATHS "${_mbedtls_libdir}" NO_DEFAULT_PATH REQUIRED)
+endforeach()
+
+set(_mbedtls_platform "")
+if(WIN32)
+    list(APPEND _mbedtls_platform ws2_32 bcrypt)
+else()
+    find_dependency(Threads)
+    list(APPEND _mbedtls_platform Threads::Threads)
+endif()
+
+# The same user config the libraries were built with: the layout of Mbed TLS structs (the threading mutex above
+# all) depends on it, so a consumer compiled without it would disagree with the library.
+set(_mbedtls_defs "TF_PSA_CRYPTO_USER_CONFIG_FILE=\"${_mbedtls_incdir}/mbedtls_cpp/mbedtls_config.h\"")
+if(@MBEDTLS_CPP_THREADING_ALT@)
+    list(APPEND _mbedtls_defs MBEDTLS_CPP_THREADING_ALT)
+endif()
+
+if(NOT TARGET MbedTLS::tfpsacrypto)
+    foreach(_name tfpsacrypto mbedx509 mbedtls)
+        add_library(MbedTLS::${_name} STATIC IMPORTED)
+        set_target_properties(MbedTLS::${_name} PROPERTIES
+            IMPORTED_LOCATION "${_mbedtls_lib_${_name}}"
+            INTERFACE_INCLUDE_DIRECTORIES "${_mbedtls_incdir}"
+            INTERFACE_COMPILE_DEFINITIONS "${_mbedtls_defs}")
+    endforeach()
+    # Static link order: each library needs the ones after it.
+    set_property(TARGET MbedTLS::tfpsacrypto PROPERTY INTERFACE_LINK_LIBRARIES "${_mbedtls_platform}")
+    set_property(TARGET MbedTLS::mbedx509 PROPERTY INTERFACE_LINK_LIBRARIES MbedTLS::tfpsacrypto)
+    set_property(TARGET MbedTLS::mbedtls PROPERTY INTERFACE_LINK_LIBRARIES MbedTLS::mbedx509)
+
+    add_library(mbedtls::cpp STATIC IMPORTED)
+    set_target_properties(mbedtls::cpp PROPERTIES
+        IMPORTED_LOCATION "${_mbedtls_lib_mbedtls_cpp_core}"
+        INTERFACE_LINK_LIBRARIES MbedTLS::mbedtls
+        IMPORTED_LINK_INTERFACE_LANGUAGES CXX)
+endif()
+
+unset(_mbedtls_libdir)
+unset(_mbedtls_incdir)
+unset(_mbedtls_platform)
+unset(_mbedtls_defs)

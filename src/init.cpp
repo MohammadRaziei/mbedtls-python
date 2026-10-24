@@ -1,6 +1,11 @@
-#include "mbedtls_cpp_threading.h"
+#include "mbedtls_cpp/init.hpp"
 
 #include <mbedtls/build_info.h>
+#include <psa/crypto.h>
+
+#include <mutex>
+
+#include "mbedtls_cpp/error.hpp"
 
 #if defined(MBEDTLS_THREADING_ALT)
 #include <mbedtls/threading.h>
@@ -36,13 +41,18 @@ int cond_wait(mbedtls_platform_condition_variable_t* c, mbedtls_platform_mutex_t
 } // namespace
 #endif
 
-extern "C" void mbedtls_cpp_threading_init(void) {
-#if defined(MBEDTLS_THREADING_ALT)
-    // A function-local static runs its initializer exactly once, even when called from several threads.
+void mbedtls_cpp::init() {
+    // call_once: the registration and psa_crypto_init() run exactly once, even when called from several threads.
     // ponytail: mbedtls_threading_free_alt() is never called, the global mutexes live as long as the process.
     // Upgrade path: an explicit shutdown, once every thread that may use Mbed TLS has been joined.
-    static const int once = (mbedtls_threading_set_alt(mutex_init, mutex_destroy, mutex_lock, mutex_unlock, cond_init,
-                                                       cond_destroy, cond_signal, cond_broadcast, cond_wait), 0);
-    (void)once;
+    static std::once_flag once;
+    static psa_status_t status = PSA_SUCCESS;
+    std::call_once(once, [] {
+#if defined(MBEDTLS_THREADING_ALT)
+        mbedtls_threading_set_alt(mutex_init, mutex_destroy, mutex_lock, mutex_unlock, cond_init, cond_destroy,
+                                  cond_signal, cond_broadcast, cond_wait);
 #endif
+        status = psa_crypto_init();
+    });
+    if (status != PSA_SUCCESS) throw Error("psa_crypto_init() failed with status " + std::to_string(status), status);
 }

@@ -76,7 +76,7 @@ endif()
 add_subdirectory(${_mbedtls_dir} EXCLUDE_FROM_ALL)
 
 # One target for everything downstream: Mbed TLS + the threading registration.
-add_library(mbedtls_cpp_core STATIC src/threading.cpp src/crypto.cpp src/x509.cpp)
+add_library(mbedtls_cpp_core STATIC src/init.cpp src/crypto.cpp src/x509.cpp)
 target_include_directories(mbedtls_cpp_core PUBLIC ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(mbedtls_cpp_core PUBLIC mbedtls mbedx509 tfpsacrypto Threads::Threads)
 add_library(mbedtls::cpp ALIAS mbedtls_cpp_core)
@@ -86,7 +86,7 @@ if(MBEDTLS_CPP_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
-# --- Install: relocatable C++ package (find_package(mbedtls_cpp CONFIG), target mbedtls::cpp) ---
+# --- Install: relocatable C++ package (find_package(MbedTLS CONFIG): MbedTLS::* and mbedtls::cpp) ---
 # Two consumers: `cmake --install build --prefix <dir>` / `cpack` (see .github/workflows/prebuilt.yml), and the wheel,
 # which carries the same package inside mbedtls/ so that `pip install mbedtls` + `python -m mbedtls --cmake-dir` is
 # all a C++ project needs (mbedtls.get_cmake_dir() / get_include_dir() / get_lib_dir()).
@@ -100,7 +100,7 @@ if(PROJECT_IS_TOP_LEVEL)
     else()
         set(_mbp_lib ${CMAKE_INSTALL_LIBDIR})
         set(_mbp_inc ${CMAKE_INSTALL_INCLUDEDIR})
-        set(_mbp_cmake ${CMAKE_INSTALL_LIBDIR}/cmake/mbedtls_cpp)
+        set(_mbp_cmake ${CMAKE_INSTALL_LIBDIR}/cmake/MbedTLS)
     endif()
 
     install(TARGETS mbedtls_cpp_core mbedtls mbedx509 tfpsacrypto ARCHIVE DESTINATION ${_mbp_lib})
@@ -108,16 +108,18 @@ if(PROJECT_IS_TOP_LEVEL)
     foreach(_root include tf-psa-crypto/include tf-psa-crypto/drivers/builtin/include)
         install(DIRECTORY ${_mbedtls_dir}/${_root}/ DESTINATION ${_mbp_inc} FILES_MATCHING PATTERN "*.h")
     endforeach()
-    install(FILES include/mbedtls_cpp_threading.h include/mbedtls_cpp_crypto.h include/mbedtls_cpp_x509.h
-                  src/alt/threading_alt.h
-            DESTINATION ${_mbp_inc})
+    install(DIRECTORY include/mbedtls_cpp DESTINATION ${_mbp_inc})
+    install(FILES src/alt/threading_alt.h DESTINATION ${_mbp_inc})
     install(FILES cmake/mbedtls_config.h DESTINATION ${_mbp_inc}/mbedtls_cpp)
 
-    configure_package_config_file(cmake/mbedtls_cpp-config.cmake.in ${PROJECT_BINARY_DIR}/mbedtls_cpp-config.cmake
+    configure_package_config_file(cmake/MbedTLSConfig.cmake.in ${PROJECT_BINARY_DIR}/MbedTLSConfig.cmake
         INSTALL_DESTINATION ${_mbp_cmake})
-    write_basic_package_version_file(${PROJECT_BINARY_DIR}/mbedtls_cpp-config-version.cmake
-        COMPATIBILITY SameMinorVersion)  # 0.x: a minor bump may break
-    install(FILES ${PROJECT_BINARY_DIR}/mbedtls_cpp-config.cmake ${PROJECT_BINARY_DIR}/mbedtls_cpp-config-version.cmake
+    # The package answers to find_package(MbedTLS <version>), so it reports Mbed TLS's version, not this project's.
+    file(STRINGS ${_mbedtls_dir}/include/mbedtls/build_info.h _mbedtls_ver_line REGEX "define MBEDTLS_VERSION_STRING ")
+    string(REGEX REPLACE ".*\"([0-9]+\\.[0-9]+\\.[0-9]+)\".*" "\\1" _mbedtls_version "${_mbedtls_ver_line}")
+    write_basic_package_version_file(${PROJECT_BINARY_DIR}/MbedTLSConfigVersion.cmake
+        VERSION ${_mbedtls_version} COMPATIBILITY SameMajorVersion)
+    install(FILES ${PROJECT_BINARY_DIR}/MbedTLSConfig.cmake ${PROJECT_BINARY_DIR}/MbedTLSConfigVersion.cmake
             DESTINATION ${_mbp_cmake})
 
     if(NOT DEFINED SKBUILD)

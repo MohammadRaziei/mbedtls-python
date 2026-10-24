@@ -8,7 +8,7 @@ _pkg_dir = _os.path.dirname(_os.path.abspath(__file__))
 
 
 def get_cmake_dir() -> str:
-    """Directory with mbedtls_cpp-config.cmake: use as mbedtls_cpp_DIR, then link mbedtls::cpp."""
+    """Directory with MbedTLSConfig.cmake: use as MbedTLS_DIR, then link mbedtls::cpp (or MbedTLS::mbedtls)."""
     return _os.path.join(_pkg_dir, "cmake")
 
 
