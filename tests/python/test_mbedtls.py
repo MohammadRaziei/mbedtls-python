@@ -1,4 +1,5 @@
 import hashlib
+import importlib.metadata
 import hmac as std_hmac
 import re
 import threading
@@ -12,7 +13,15 @@ DATA = [b"", b"abc", b"x" * 1000, bytes(range(256)) * 17]
 
 
 def test_versions():
-    assert re.fullmatch(r"\d+\.\d+\.\d+", mbedtls.__version__)
+    try:
+        importlib.metadata.version("mbedtls")
+        installed = True
+    except importlib.metadata.PackageNotFoundError:  # the in-tree package of `cmake --build` + ctest has no metadata
+        installed = False
+    if installed:
+        assert re.fullmatch(r"\d+\.\d+\.\d+", mbedtls.__version__)
+    else:
+        assert mbedtls.__version__ == "0.0.0+unknown"
     assert re.fullmatch(r"\d+\.\d+\.\d+", mbedtls.__mbedtls_version__)
 
 

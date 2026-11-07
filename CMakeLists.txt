@@ -5,22 +5,22 @@ include(PyProject)  # PyProject_NAME / _VERSION / _DESCRIPTION, read from pyproj
 
 project(mbedtls_python VERSION ${PyProject_VERSION} LANGUAGES C CXX)
 message(STATUS "Project: ${PROJECT_NAME}@v${PROJECT_VERSION}")
+include(Startup)
 
-list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
-
-if(DEFINED SKBUILD)
-    set(_default_tests OFF)
-else()
-    set(_default_tests ${PROJECT_IS_TOP_LEVEL})
-endif()
-option(MBEDTLS_CPP_BUILD_TESTS "Build the C++ unit tests (utest)" ${_default_tests})
-option(MBEDTLS_CPP_THREADING_ALT "Use the alt threading layer (always on for Windows) instead of pthread" OFF)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release)
 endif()
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+include(Optimize)
+
+option(MBEDTLS_CPP_BUILD_TESTS "Build the C++ tests, and register the Python and CMake-consumer tests" ${PROJECT_IS_TOP_LEVEL})
+option(MBEDTLS_CPP_BUILD_PYTHON "Build the Python bindings" ${PROJECT_IS_TOP_LEVEL})
+option(MBEDTLS_CPP_BUILD_EXAMPLES "Build the C++ example in examples/consumer" OFF)
+option(MBEDTLS_CPP_THREADING_ALT "Use the alt threading layer (always on for Windows) instead of pthread" OFF)
 
 # --- Mbed TLS (git submodule, built from source, linked statically) ---
 # Static libs end up inside the Python extension (a shared object), so they must be PIC. Hidden visibility keeps
@@ -76,89 +76,125 @@ if(WIN32 OR MBEDTLS_CPP_THREADING_ALT)
 endif()
 add_subdirectory(${_mbedtls_dir} EXCLUDE_FROM_ALL)
 
-# One target for everything downstream: Mbed TLS + the threading registration.
-add_library(mbedtls_cpp_core STATIC src/mbedtls.cpp)
-target_include_directories(mbedtls_cpp_core PUBLIC ${PROJECT_SOURCE_DIR}/include)
-target_link_libraries(mbedtls_cpp_core PUBLIC mbedtls mbedx509 tfpsacrypto Threads::Threads)
-add_library(mbedtls::cpp ALIAS mbedtls_cpp_core)
+# --- mbedtls_cpp C++ core ---
+# The core is always a shared library (libmbedtls_cpp.so, libmbedtls_cpp.dylib, mbedtls_cpp.dll): the Python
+# extension and every C++ program link to the same copy, which is what lets a wheel carry one engine. Mbed TLS is
+# linked statically *into* it, with hidden visibility: only what include/mbedtls.hpp marks MBEDTLS_CPP_API is exported
+# (include/mbedtls_cpp/export.hpp), so no Mbed TLS symbol leaks and another copy in the same process cannot clash.
+set(MBEDTLS_CPP_CORE_SOURCES ${PROJECT_SOURCE_DIR}/src/mbedtls.cpp)
+
+add_library(mbedtls_core SHARED ${MBEDTLS_CPP_CORE_SOURCES})
+target_compile_definitions(mbedtls_core PRIVATE MBEDTLS_CPP_BUILDING_LIBRARY)
+target_compile_features(mbedtls_core PUBLIC cxx_std_17)  # mbedtls.hpp uses std::string_view
+add_library(mbedtls::cpp ALIAS mbedtls_core)
+
+set_target_properties(mbedtls_core PROPERTIES
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON
+    EXPORT_NAME cpp                     # consumers link mbedtls::cpp
+    OUTPUT_NAME mbedtls_cpp             # libmbedtls_cpp.so / libmbedtls_cpp.dylib / mbedtls_cpp.dll
+)
+if(NOT DEFINED SKBUILD)
+    # libmbedtls_cpp.so -> libmbedtls_cpp.so.0.1 -> libmbedtls_cpp.so.0.1.0 in a plain install. A wheel carries a
+    # single file (zip has no symlinks), so it gets no version suffix.
+    set_target_properties(mbedtls_core PROPERTIES
+        VERSION ${PROJECT_VERSION}
+        SOVERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+    )
+endif()
+# MSVC: the exported classes hold std::string / std::vector members (C4251) and derive from std exceptions (C4275).
+# Both are fine as long as the library and its users use the same compiler and runtime, which a DLL of C++ classes
+# already requires.
+target_compile_options(mbedtls_core PUBLIC $<$<CXX_COMPILER_ID:MSVC>:/wd4251 /wd4275>)
+if(UNIX AND NOT APPLE) # belt and braces next to hidden visibility
+    target_link_options(mbedtls_core PRIVATE -Wl,--exclude-libs,ALL)
+endif()
+
+# Install layout: the wheel carries the C++ SDK as a regular install prefix, mbedtls/sdk/ (include/, lib/ and
+# lib/cmake/mbedtls_cpp/ inside it: the same tree `cmake --install` makes; see get_sdk_dir() in the Python package).
+# A plain `cmake --install` uses the usual prefix layout.
+if(DEFINED SKBUILD)
+    set(_mbcpp_sdk_dest   mbedtls/sdk)
+    set(_mbcpp_lib_dest   ${_mbcpp_sdk_dest}/lib)
+    set(_mbcpp_bin_dest   ${_mbcpp_sdk_dest}/lib)  # mbedtls_cpp.dll beside mbedtls_cpp.lib; mbedtls/__init__.py adds it with os.add_dll_directory
+    set(_mbcpp_inc_dest   ${_mbcpp_sdk_dest}/include)
+    set(_mbcpp_cmake_dest ${_mbcpp_sdk_dest}/lib/cmake/mbedtls_cpp)
+else()
+    set(_mbcpp_lib_dest   lib)
+    set(_mbcpp_bin_dest   bin)
+    set(_mbcpp_inc_dest   include)
+    set(_mbcpp_cmake_dest lib/cmake/mbedtls_cpp)
+endif()
+
+target_include_directories(mbedtls_core
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${_mbcpp_inc_dest}>
+)
+
+# Everything that decides how the core sources are compiled lives in this function, so a target that compiles them
+# itself (tests/cpp does: the tests call the Mbed TLS / PSA C API directly, which the shared library does not export)
+# gets exactly the same settings as mbedtls_core.
+function(mbedtls_cpp_apply_core_build_settings target)
+    # A target that compiles the core sources itself has no library to import from: MBEDTLS_CPP_API must be empty
+    # there. mbedtls_core builds with MBEDTLS_CPP_BUILDING_LIBRARY instead.
+    # (mbedtls_core also has its include directory, with the install-tree variant, set above.)
+    if(NOT target STREQUAL "mbedtls_core")
+        target_compile_definitions(${target} PUBLIC MBEDTLS_CPP_STATIC_DEFINE)
+        target_include_directories(${target} PUBLIC ${PROJECT_SOURCE_DIR}/include)
+    endif()
+    target_compile_options(${target} PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:/W4 /EHsc>
+        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra>
+    )
+    apply_optimization_flags(${target})
+endfunction()
+
+mbedtls_cpp_apply_core_build_settings(mbedtls_core)
+target_link_libraries(mbedtls_core PRIVATE mbedtls mbedx509 tfpsacrypto Threads::Threads)
+
+# --- install (find_package(mbedtls_cpp) -> mbedtls::cpp) ---
+if(PROJECT_IS_TOP_LEVEL)
+    include(CMakePackageConfigHelpers)
+    install(TARGETS mbedtls_core EXPORT mbedtls_cppTargets
+        LIBRARY DESTINATION ${_mbcpp_lib_dest}     # libmbedtls_cpp.so, libmbedtls_cpp.dylib
+        RUNTIME DESTINATION ${_mbcpp_bin_dest}     # mbedtls_cpp.dll
+        ARCHIVE DESTINATION ${_mbcpp_lib_dest}     # mbedtls_cpp.lib, the import library on Windows
+    )
+    install(DIRECTORY include/ DESTINATION ${_mbcpp_inc_dest})
+    install(EXPORT mbedtls_cppTargets FILE mbedtls_cppTargets.cmake NAMESPACE mbedtls:: DESTINATION ${_mbcpp_cmake_dest})
+    configure_package_config_file(
+        ${PROJECT_SOURCE_DIR}/cmake/mbedtls_cppConfig.cmake.in
+        ${PROJECT_BINARY_DIR}/mbedtls_cppConfig.cmake
+        INSTALL_DESTINATION ${_mbcpp_cmake_dest}
+    )
+    write_basic_package_version_file(
+        ${PROJECT_BINARY_DIR}/mbedtls_cppConfigVersion.cmake
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion
+    )
+    install(FILES
+        ${PROJECT_BINARY_DIR}/mbedtls_cppConfig.cmake
+        ${PROJECT_BINARY_DIR}/mbedtls_cppConfigVersion.cmake
+        DESTINATION ${_mbcpp_cmake_dest}
+    )
+endif()
+
+if(MBEDTLS_CPP_BUILD_PYTHON OR DEFINED SKBUILD)
+    set(PYTHON_INSTALL_DIR ${CMAKE_BINARY_DIR}/python/install)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/src/bindings/python)
+    if(DEFINED SKBUILD)
+        return()
+    endif()
+endif()
 
 if(MBEDTLS_CPP_BUILD_TESTS)
     enable_testing()
-    add_subdirectory(tests)
+    set(CMAKE_CTEST_ARGUMENTS "--output-on-failure")
+    add_subdirectory(${PROJECT_SOURCE_DIR}/tests)
 endif()
 
-# --- Install: relocatable C++ package (find_package(MbedTLS CONFIG): MbedTLS::* and mbedtls::cpp) ---
-# Two consumers: `cmake --install build --prefix <dir>` / `cpack` (see .github/workflows/prebuilt.yml), and the wheel,
-# which carries the same package inside mbedtls/ so that `pip install mbedtls` + `python -m mbedtls --cmake-dir` is
-# all a C++ project needs (mbedtls.get_cmake_dir() / get_include_dir() / get_lib_dir()).
-if(PROJECT_IS_TOP_LEVEL)
-    include(GNUInstallDirs)
-    include(CMakePackageConfigHelpers)
-    if(DEFINED SKBUILD)
-        set(_mbp_lib mbedtls/lib)
-        set(_mbp_inc mbedtls/include)
-        set(_mbp_cmake mbedtls/cmake)
-    else()
-        set(_mbp_lib ${CMAKE_INSTALL_LIBDIR})
-        set(_mbp_inc ${CMAKE_INSTALL_INCLUDEDIR})
-        set(_mbp_cmake ${CMAKE_INSTALL_LIBDIR}/cmake/MbedTLS)
-    endif()
-
-    install(TARGETS mbedtls_cpp_core mbedtls mbedx509 tfpsacrypto ARCHIVE DESTINATION ${_mbp_lib})
-    # The three include roots Mbed TLS itself puts on the include path (see its library/CMakeLists.txt).
-    foreach(_root include tf-psa-crypto/include tf-psa-crypto/drivers/builtin/include)
-        install(DIRECTORY ${_mbedtls_dir}/${_root}/ DESTINATION ${_mbp_inc} FILES_MATCHING PATTERN "*.h")
-    endforeach()
-    install(FILES include/mbedtls.hpp DESTINATION ${_mbp_inc})
-    install(FILES src/alt/threading_alt.h DESTINATION ${_mbp_inc})
-    install(FILES cmake/mbedtls_config.h DESTINATION ${_mbp_inc}/mbedtls_cpp)
-
-    configure_package_config_file(cmake/MbedTLSConfig.cmake.in ${PROJECT_BINARY_DIR}/MbedTLSConfig.cmake
-        INSTALL_DESTINATION ${_mbp_cmake})
-    # The package answers to find_package(MbedTLS <version>), so it reports Mbed TLS's version, not this project's.
-    file(STRINGS ${_mbedtls_dir}/include/mbedtls/build_info.h _mbedtls_ver_line REGEX "define MBEDTLS_VERSION_STRING ")
-    string(REGEX REPLACE ".*\"([0-9]+\\.[0-9]+\\.[0-9]+)\".*" "\\1" _mbedtls_version "${_mbedtls_ver_line}")
-    write_basic_package_version_file(${PROJECT_BINARY_DIR}/MbedTLSConfigVersion.cmake
-        VERSION ${_mbedtls_version} COMPATIBILITY SameMajorVersion)
-    install(FILES ${PROJECT_BINARY_DIR}/MbedTLSConfig.cmake ${PROJECT_BINARY_DIR}/MbedTLSConfigVersion.cmake
-            DESTINATION ${_mbp_cmake})
-
-    if(NOT DEFINED SKBUILD)
-        # ponytail: the archive is only as portable as the runner that built it (glibc of ubuntu-latest, macOS arch of
-        # macos-latest, no universal2). Upgrade path: build the Linux one in a manylinux container.
-        set(CPACK_PACKAGE_NAME mbedtls-cpp-core)
-        set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
-        set(CPACK_PACKAGE_FILE_NAME mbedtls-cpp-core-${PROJECT_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR})
-        if(WIN32)
-            set(CPACK_GENERATOR ZIP)
-        else()
-            set(CPACK_GENERATOR TGZ)
-        endif()
-        include(CPack)
-    endif()
-endif()
-
-# --- Python extension (only under scikit-build-core, i.e. `pip install .` / cibuildwheel) ---
-if(DEFINED SKBUILD)
-    # ${SKBUILD_SABI_COMPONENT} is Development.SABIModule when building a stable-ABI wheel (wheel.py-api in
-    # pyproject.toml) and empty otherwise (free-threaded builds cannot use abi3).
-    find_package(Python REQUIRED COMPONENTS Interpreter Development.Module ${SKBUILD_SABI_COMPONENT})
-    find_package(Cython MODULE REQUIRED VERSION 3.1)
-    include(UseCython)
-
-    cython_transpile(${PROJECT_SOURCE_DIR}/src/bindings/python/mbedtls/_mbedtls_cy.pyx LANGUAGE CXX OUTPUT_VARIABLE _mbedtls_cxx)
-    if(NOT "${SKBUILD_SABI_VERSION}" STREQUAL "")
-        set(USE_SABI USE_SABI ${SKBUILD_SABI_VERSION})
-    endif()
-    if(SKBUILD_SOABI)
-        set(Python_SOABI ${SKBUILD_SOABI})
-    endif()
-    python_add_library(_mbedtls_cy MODULE "${_mbedtls_cxx}" WITH_SOABI ${USE_SABI})
-    target_link_libraries(_mbedtls_cy PRIVATE mbedtls::cpp)
-    if(UNIX AND NOT APPLE) # belt and braces next to hidden visibility
-        target_link_options(_mbedtls_cy PRIVATE -Wl,--exclude-libs,ALL)
-    endif()
-
-    install(TARGETS _mbedtls_cy DESTINATION mbedtls)
-    install(DIRECTORY ${PROJECT_SOURCE_DIR}/src/bindings/python/mbedtls/ DESTINATION mbedtls FILES_MATCHING PATTERN "*.py")
+# The C++ example (examples/consumer), against the same library the users link.
+if(MBEDTLS_CPP_BUILD_EXAMPLES)
+    add_subdirectory(${PROJECT_SOURCE_DIR}/examples/consumer)
 endif()

@@ -28,12 +28,14 @@ jobs:
       run: pip install -r requirements-dev.txt
 
     - name: Configure
-      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DMBEDTLS_CPP_BUILD_TESTS=ON
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DMBEDTLS_CPP_BUILD_TESTS=ON -DMBEDTLS_CPP_BUILD_PYTHON=ON
 
     - name: Build
       run: cmake --build build -j4 --config Release
 
-    - name: Test
+    # C++ tests, Python tests (pytest against the freshly built package) and the find_package consumer tests
+    # (against the installed package and against `cmake --install`) all run under ctest.
+    - name: Run tests
       run: ctest --test-dir build -C Release --output-on-failure
 
   # The threading layer is what makes the shared PSA state safe: run the same stress test under ThreadSanitizer, once
@@ -62,6 +64,7 @@ jobs:
         cmake -B build \
           -DCMAKE_BUILD_TYPE=RelWithDebInfo \
           -DMBEDTLS_CPP_BUILD_TESTS=ON \
+          -DMBEDTLS_CPP_BUILD_PYTHON=OFF \
           -DMBEDTLS_CPP_THREADING_ALT=${{ matrix.alt }} \
           -DCMAKE_C_FLAGS=-fsanitize=thread \
           -DCMAKE_CXX_FLAGS=-fsanitize=thread \

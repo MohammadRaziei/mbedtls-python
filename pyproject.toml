@@ -11,7 +11,7 @@ build-backend = "scikit_build_core.build"
 [project]
 name = "mbedtls"
 version = "0.1.0"
-description = "Python bindings for Mbed TLS: statically linked, thread-safe, one abi3 wheel for CPython 3.9+"
+description = "Python bindings for Mbed TLS: thread-safe, one abi3 wheel for CPython 3.9+, with the C++ SDK (shared library) inside"
 authors = [
     {name = "Mohammad Raziei", email = "mohammadraziei1375@gmail.com"},
 ]
@@ -48,6 +48,10 @@ mbedtls = "mbedtls.__main__:cli"
 version = ">=3.26"
 build-type = "Release"
 
+[tool.scikit-build.cmake.define]
+MBEDTLS_CPP_BUILD_PYTHON = "ON"
+MBEDTLS_CPP_BUILD_TESTS = "OFF"
+
 # Stable ABI: one cp39-abi3 wheel per platform works on every GIL-enabled CPython from 3.9 up. Free-threaded
 # Python cannot load abi3 wheels, so CI builds cp313t, cp314t and cp315t separately (scikit-build-core ignores
 # py-api for them). See .github/workflows/wheels.yml.
@@ -70,8 +74,9 @@ test-extras = ["test"]
 [tool.cibuildwheel.linux]
 repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"
 
-# Mbed TLS is linked statically into the extension: there is no DLL to bundle. cibuildwheel 4.x runs delvewheel on
-# Windows by default, which has nothing to do here.
+# The core DLL (mbedtls_cpp.dll) already sits in the wheel, in mbedtls/sdk/lib, and is registered with
+# os.add_dll_directory by mbedtls/__init__.py: there is nothing for delvewheel to bundle. cibuildwheel 4.x runs it on
+# Windows by default.
 [tool.cibuildwheel.windows]
 repair-wheel-command = ""
 

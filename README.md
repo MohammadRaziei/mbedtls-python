@@ -4,8 +4,11 @@ Python bindings for [Mbed TLS](https://github.com/Mbed-TLS/mbedtls) (4.2.0), bui
 [httpp](https://github.com/MohammadRaziei/httpp): Cython, scikit-build-core, one `cp39-abi3` wheel per platform plus
 separate free-threaded wheels (`cp313t`, `cp314t`, `cp315t`).
 
-Mbed TLS is a git submodule, built from source and linked **statically** into the extension, with hidden visibility:
-no system package, no DLL, and no symbol clash with another copy in the same process.
+Mbed TLS is a git submodule, built from source and linked statically into **one shared library, `mbedtls_cpp`**
+(`libmbedtls_cpp.so`, `libmbedtls_cpp.dylib`, `mbedtls_cpp.dll`), with hidden visibility: the Python extension and every C++
+program link to the same copy, only the C++ API of `include/mbedtls.hpp` is exported, and so there is no system package and no
+symbol clash with another copy of Mbed TLS in the same process. The wheel carries it as `mbedtls/sdk/` (`include/`, `lib/`,
+`lib/cmake/mbedtls_cpp/`).
 
 **Status: level 5** (1: build system, thread safety, CI; 2: digests, HMAC, random bytes; 3: installable C++ package; 4: release workflow; 5: X.509).
 
@@ -55,28 +58,27 @@ layer is on, so it is always on (`cmake/mbedtls_config.h`): pthread on POSIX, an
 ```bash
 git clone --recurse-submodules https://github.com/MohammadRaziei/mbedtls-python
 cd mbedtls-python
-pip install -r requirements-dev.txt     # jsonschema + jinja2 for Mbed TLS's code generators; Perl must be on PATH
+pip install -r requirements-dev.txt     # jsonschema + jinja2 for Mbed TLS's code generators, cython, pytest; Perl must be on PATH
 
-pip install .[test] && pytest           # the Python package
-cmake -B build -DMBEDTLS_CPP_BUILD_TESTS=ON && cmake --build build && ctest --test-dir build   # C++ core only
+pip install .[test] && pytest           # the Python package (the wheel layout)
+cmake -S . -B build && cmake --build build && ctest --test-dir build   # everything: core, extension, tests
 ```
 
 Forgot `--recurse-submodules`? `git submodule update --init --recursive`.
 
-## Use the C++ core without building Mbed TLS
+CMake options: `MBEDTLS_CPP_BUILD_TESTS` (C++ tests, plus the Python and consumer tests under ctest), `MBEDTLS_CPP_BUILD_PYTHON`
+(the extension, installed with the same `mbedtls/sdk` layout as the wheel into `build/python/install`),
+`MBEDTLS_CPP_BUILD_EXAMPLES`, `MBEDTLS_CPP_THREADING_ALT`. The C++ tests compile the core into a static library, because
+they call the Mbed TLS / PSA C API directly, which the shared library keeps hidden.
 
-`cmake --install build --prefix <dir>` (or the `mbedtls-cpp-core-*` archive from the `prebuilt core` workflow) gives a
-relocatable package: static libraries, headers and a CMake config.
+## Use the C++ core without Python
+
+`cmake --install build --prefix <dir>` gives a relocatable package: the shared library, `mbedtls.hpp` and a CMake config.
 
 ```cmake
-find_package(MbedTLS CONFIG REQUIRED)        # CMAKE_PREFIX_PATH=<dir>
+find_package(mbedtls_cpp CONFIG REQUIRED)    # CMAKE_PREFIX_PATH=<dir>
 target_link_libraries(app PRIVATE mbedtls::cpp)
 ```
-
-The package is a drop-in for the config Mbed TLS installs itself: `find_package(MbedTLS 4 CONFIG)` also gives
-`MbedTLS::mbedtls`, `MbedTLS::mbedx509` and `MbedTLS::tfpsacrypto` (static), so a project that already links those
-needs no change. `mbedtls::cpp` adds the C++ classes and links them. The targets carry the include path, the exact
-user config the libraries were built with and the system libraries.
 
 ```cpp
 #include <mbedtls.hpp>
@@ -87,12 +89,12 @@ auto result = chain[0].verify(trusted, intermediates, "example.org");   // resul
 ```
 
 Errors are exceptions: `UnknownAlgorithm` and `CertificateError` (`std::invalid_argument`), `Error`
-(`std::runtime_error`, a failed PSA call). `mbedtls::init()` runs on first use; call it yourself before using the
-Mbed TLS / PSA C API directly. `examples/consumer` is a complete project.
+(`std::runtime_error`, a failed PSA call). `mbedtls::init()` runs on first use. The Mbed TLS / PSA C API is not part of the
+package (it stays hidden inside the library); `examples/consumer` is a complete project.
 
 ## Releasing
 
-`.github/workflows/orchestrator.yml` runs the C++ tests (with ThreadSanitizer), the prebuilt package and all wheels.
+`.github/workflows/orchestrator.yml` runs the cmake workflow (C++, Python and consumer tests, ThreadSanitizer) and the wheels workflow.
 
 - push to `master`: everything is built and the `__beta__` pre-release is refreshed with the artifacts.
 - push of a tag `vX.Y.Z`: the same, then a GitHub release and PyPI. The tag must equal the `version` in `pyproject.toml`,
@@ -109,28 +111,28 @@ commit, `git tag vX.Y.Z && git push --follow-tags`.
 | Path | What |
 |---|---|
 | `src/third_party/mbedtls` | submodule, pinned to `v4.2.0` |
-| `cmake/mbedtls_config.h` | Mbed TLS user config (threading) |
-| `include/`, `src/` | `include/mbedtls.hpp` + `src/mbedtls.cpp`, the C++ core: `mbedtls::cpp` target, `init()`, `Digest`/`Hmac`/`Certificate` |
-| `src/bindings/python/mbedtls/` | Python package and the Cython module `_mbedtls_cy.pyx` |
-| `examples/consumer` | smallest user of the installed package (also run in CI) |
-| `tests/python`, `tests/cpp` | `pytest` for Python, utest (`tests/utest`) for the core (ctest) |
+| `cmake/` | `mbedtls_config.h` (Mbed TLS user config: threading), `mbedtls_cppConfig.cmake.in`, `PyProject`, `Startup`, `Optimize`, Cython helpers |
+| `include/`, `src/mbedtls.cpp` | the C++ core: `include/mbedtls.hpp` + `include/mbedtls_cpp/export.hpp`, built as the shared library `mbedtls_cpp` (target `mbedtls::cpp`) |
+| `src/bindings/python/` | its `CMakeLists.txt`, the Python package `mbedtls/` and the Cython module `_mbedtls_cy.pyx` |
+| `examples/consumer` | smallest user of the installed package (built by ctest, both from a prefix and from the wheel) |
+| `tests/python`, `tests/cpp`, `tests/cmake` | `pytest`, utest (`tests/utest`) for the core, and the `find_package` consumer tests (all under ctest) |
 | `tests/data` | test certificates, regenerate with `tests/gen_x509_fixtures.sh` |
 
 ## Use from C++ (via pip)
 
-The wheel carries the static C++ core, the Mbed TLS headers and a CMake package config, so `pip install mbedtls` is
+The wheel carries the C++ SDK as `mbedtls/sdk/` (headers, the shared library, the CMake package), so `pip install mbedtls` is
 all a C++ project needs (same idea as `python -m nanobind --cmake_dir`):
 
 ```cmake
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 execute_process(COMMAND ${Python3_EXECUTABLE} -m mbedtls --cmake-dir
-                OUTPUT_VARIABLE MbedTLS_DIR OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
-find_package(MbedTLS CONFIG REQUIRED)
+                OUTPUT_VARIABLE mbedtls_cpp_DIR OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+find_package(mbedtls_cpp CONFIG REQUIRED)
 target_link_libraries(app PRIVATE mbedtls::cpp)
 ```
 
 ```sh
-mbedtls --cmake-dir     # also: --include-dir, --lib-dir (python -m mbedtls ... works too)
+mbedtls --cmake-dir     # also: --sdk-dir, --include-dir, --lib-dir (python -m mbedtls ... works too)
 ```
 
-A complete project: `examples/find_mbedtls_via_python`.
+On Windows the program finds `mbedtls_cpp.dll` only beside itself or on `PATH`; `examples/consumer/CMakeLists.txt` copies it.

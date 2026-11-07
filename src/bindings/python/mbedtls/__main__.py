@@ -1,17 +1,19 @@
 import argparse
 
-from . import __mbedtls_version__, __version__, get_cmake_dir, get_include_dir, get_lib_dir
+from . import __mbedtls_version__, __version__, get_cmake_dir, get_include_dir, get_lib_dir, get_sdk_dir
 
 
 def cli():
     # Build-system helpers (same idea as `python -m nanobind --cmake_dir`): print a path, so a CMakeLists.txt can do
-    # execute_process(python -m mbedtls --cmake-dir) and hand the result to find_package(MbedTLS).
+    # execute_process(python -m mbedtls --cmake-dir) and hand the result to find_package(mbedtls_cpp).
     p = argparse.ArgumentParser(prog="mbedtls")
-    p.add_argument("--cmake-dir", "--cmake_dir", action="store_true", help="print the directory with MbedTLSConfig.cmake")
-    p.add_argument("--include-dir", "--include_dir", action="store_true", help="print the directory with the headers")
-    p.add_argument("--lib-dir", "--lib_dir", action="store_true", help="print the directory with the static libraries")
+    p.add_argument("--sdk-dir", "--sdk_dir", action="store_true", help="print the root of the C++ SDK (include/, lib/)")
+    p.add_argument("--cmake-dir", "--cmake_dir", action="store_true", help="print the directory with mbedtls_cppConfig.cmake")
+    p.add_argument("--include-dir", "--include_dir", action="store_true", help="print the directory with mbedtls.hpp")
+    p.add_argument("--lib-dir", "--lib_dir", action="store_true", help="print the directory with the shared library")
     a = p.parse_args()
-    for flag, getter in ((a.cmake_dir, get_cmake_dir), (a.include_dir, get_include_dir), (a.lib_dir, get_lib_dir)):
+    for flag, getter in ((a.sdk_dir, get_sdk_dir), (a.cmake_dir, get_cmake_dir), (a.include_dir, get_include_dir),
+                         (a.lib_dir, get_lib_dir)):
         if flag:
             print(getter())
             return

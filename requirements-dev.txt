@@ -1,3 +1,4 @@
 pytest>=7.0
 jsonschema
 jinja2
+cython>=3.1  # the Python extension of the cmake build (build_python)

@@ -11,18 +11,20 @@
 #include <string_view>
 #include <vector>
 
+#include "mbedtls_cpp/export.hpp"
+
 namespace mbedtls {
 
 // ---- version ----
 
 // The version of Mbed TLS itself (what this library was built against), not of this project: that one is the
 // `version` of pyproject.toml.
-std::string version_string();  // "4.2.0"
-uint32_t version_hex();        // 0x04020000: major, minor, patch, one byte each (MBEDTLS_VERSION_NUMBER)
+MBEDTLS_CPP_API std::string version_string();  // "4.2.0"
+MBEDTLS_CPP_API uint32_t version_hex();        // 0x04020000: major, minor, patch, one byte each (MBEDTLS_VERSION_NUMBER)
 
 // ---- errors ----
 // Mbed TLS / PSA reported a failure. code() is the (negative) psa_status_t or Mbed TLS error code.
-class Error : public std::runtime_error {
+class MBEDTLS_CPP_API Error : public std::runtime_error {
 public:
     Error(const std::string& what, int code) : std::runtime_error(what), code_(code) {}
     int code() const noexcept { return code_; }
@@ -32,7 +34,7 @@ private:
 };
 
 // The caller named a hash algorithm that is not supported (see hash_algorithms()).
-class UnknownAlgorithm : public std::invalid_argument {
+class MBEDTLS_CPP_API UnknownAlgorithm : public std::invalid_argument {
 public:
     explicit UnknownAlgorithm(std::string_view name)
         : std::invalid_argument("unsupported hash algorithm: '" + std::string(name) + "'") {}
@@ -40,7 +42,7 @@ public:
 
 // Malformed or unusable certificate data. code() is the Mbed TLS error code, or the number of certificates of a PEM
 // bundle that could not be parsed (positive).
-class CertificateError : public std::invalid_argument {
+class MBEDTLS_CPP_API CertificateError : public std::invalid_argument {
 public:
     CertificateError(const std::string& what, int code) : std::invalid_argument("invalid certificate: " + what), code_(code) {}
     int code() const noexcept { return code_; }
@@ -54,14 +56,14 @@ private:
 // pthread layer needs nothing) and runs psa_crypto_init(). Safe to call more than once and from several threads. The
 // classes and functions of this library call it themselves on first use; call it explicitly before using the Mbed TLS
 // / PSA C API directly. Throws Error when psa_crypto_init() fails.
-void init();
+MBEDTLS_CPP_API void init();
 
 // ---- crypto ----
 // Names of the supported hash algorithms, spelled like Python's hashlib ("sha256", "sha3_512", ...).
-std::vector<std::string> hash_algorithms();
+MBEDTLS_CPP_API std::vector<std::string> hash_algorithms();
 
 // A hash algorithm chosen by name. Throws UnknownAlgorithm when there is no such algorithm.
-class Digest {
+class MBEDTLS_CPP_API Digest {
 public:
     explicit Digest(std::string_view name);
 
@@ -75,7 +77,7 @@ private:
 };
 
 // HMAC under a fixed key (may be empty). The key is copied and wiped (best effort) in the destructor.
-class Hmac {
+class MBEDTLS_CPP_API Hmac {
 public:
     Hmac(std::string_view name, std::string_view key);
     Hmac(const Hmac&) = default;
@@ -93,9 +95,9 @@ private:
 };
 
 // One-shot helpers.
-std::string digest(std::string_view name, std::string_view data);
-std::string hmac(std::string_view name, std::string_view key, std::string_view data);
-std::string random_bytes(size_t n);  // from the PSA random generator
+MBEDTLS_CPP_API std::string digest(std::string_view name, std::string_view data);
+MBEDTLS_CPP_API std::string hmac(std::string_view name, std::string_view key, std::string_view data);
+MBEDTLS_CPP_API std::string random_bytes(size_t n);  // from the PSA random generator
 
 // ---- x509 ----
 struct Time {  // UTC
@@ -110,7 +112,7 @@ struct VerifyResult {
     std::string info;
 };
 
-class Certificate {
+class MBEDTLS_CPP_API Certificate {
 public:
     // An empty placeholder (not a valid certificate); get real ones from from_der() / from_pem().
     Certificate() = default;
