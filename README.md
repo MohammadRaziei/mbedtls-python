@@ -92,20 +92,6 @@ Errors are exceptions: `UnknownAlgorithm` and `CertificateError` (`std::invalid_
 (`std::runtime_error`, a failed PSA call). `mbedtls::init()` runs on first use. The Mbed TLS / PSA C API is not part of the
 package (it stays hidden inside the library); `examples/consumer` is a complete project.
 
-## Releasing
-
-`.github/workflows/orchestrator.yml` runs the C++ tests (with ThreadSanitizer), the prebuilt package and all wheels.
-
-- push to `master`: everything is built and the `__beta__` pre-release is refreshed with the artifacts.
-- push of a tag `vX.Y.Z`: the same, then a GitHub release and PyPI. The tag must equal the `version` in `pyproject.toml`,
-  otherwise the run stops at the first step. Nothing is published unless every job passed.
-
-Needs the repository secrets `PYPI_USERNAME` and `PYPI_PASSWORD` (same as httpp). The version of this project lives in
-one place, `version = "X.Y.Z"` in `pyproject.toml`: the wheel, CMake (`cmake/PyProject.cmake`, `PROJECT_VERSION`) and CI
-all read it from there; `mbedtls.__version__` is that version, `mbedtls.__mbedtls_version__` (C++:
-`mbedtls::version_string()` and `mbedtls::version_hex()`) is the version of Mbed TLS itself. Steps: change `version`,
-commit, `git tag vX.Y.Z && git push --follow-tags`.
-
 ## Layout
 
 | Path | What |
