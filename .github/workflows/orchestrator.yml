@@ -59,13 +59,17 @@ jobs:
     uses: ./.github/workflows/cmake.yml
     needs: [init]
 
+  prebuilt:
+    uses: ./.github/workflows/prebuilt.yml
+    needs: [init]
+
   wheel:
     uses: ./.github/workflows/wheels.yml
     needs: [init]
 
-  # Nothing is published unless the C++ tests (incl. ThreadSanitizer), the consumer tests and every wheel passed.
-  release-wheels:
-    needs: [init, cmake, wheel]
+  # Nothing is published unless the C++ tests (incl. ThreadSanitizer), the prebuilt package and every wheel passed.
+  release:
+    needs: [init, cmake, prebuilt, wheel]
     runs-on: ubuntu-latest
     steps:
       - name: Download wheels and sdist
@@ -75,13 +79,20 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: Download prebuilt cores
+        uses: actions/download-artifact@v8
+        with:
+          pattern: prebuilt-*
+          path: prebuilt
+          merge-multiple: true
+
       # Safety net: the PyPI step takes dist/ as it is, so it must hold only flat *.whl / *.tar.gz files.
       - name: Check layout
         run: |
-          if find dist -mindepth 1 -type d | grep -q .; then
-            echo "::error::unexpected sub-directories"; find dist; exit 1
+          if find dist prebuilt -mindepth 1 -type d | grep -q .; then
+            echo "::error::unexpected sub-directories"; find dist prebuilt; exit 1
           fi
-          ls -lh dist
+          ls -lh dist prebuilt
 
       - name: Upload to the GitHub release
         uses: softprops/action-gh-release@v3
@@ -91,7 +102,9 @@ jobs:
           draft: false
           prerelease: ${{ needs.init.outputs.is_tag == 'false' }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          files: dist/*
+          files: |
+            dist/*
+            prebuilt/*
           generate_release_notes: true
 
       - name: Publishing to PyPi

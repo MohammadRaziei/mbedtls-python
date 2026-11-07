@@ -9,21 +9,17 @@ such changes are listed under **Changed**). The version of the project is the `v
 ## [Unreleased]
 
 ### Changed
-- **The C++ core is now a shared library**, `mbedtls_cpp` (`libmbedtls_cpp.so`, `.dylib`, `mbedtls_cpp.dll`), with Mbed TLS linked
-  statically inside it and hidden: only `include/mbedtls.hpp` is exported (`MBEDTLS_CPP_API`, `include/mbedtls_cpp/export.hpp`).
-  The Python extension and C++ programs share one copy.
-- **The wheel carries the SDK as `mbedtls/sdk/`** (`include/`, `lib/`, `lib/cmake/mbedtls_cpp/`), the same tree `cmake --install` makes.
+- **The C++ core is now a shared library**, `mbedtls_cpp_core` (`libmbedtls_cpp_core.so`, `.dylib`, `mbedtls_cpp_core.dll`; target
+  `mbedtls::cpp` as before), with Mbed TLS linked statically inside it and hidden: only `include/mbedtls.hpp` is exported
+  (`MBEDTLS_CPP_API`, `include/mbedtls_cpp/export.hpp`). The Python extension and C++ programs share one copy.
+- **The wheel carries the SDK as `mbedtls/sdk/`** (`include/`, `lib/`, `lib/cmake/MbedTLS/`), the same tree `cmake --install` makes.
   New `mbedtls.get_sdk_dir()` and `--sdk-dir`; `get_include_dir()`, `get_lib_dir()` and `get_cmake_dir()` point into it.
-- **CMake package renamed** from `MbedTLS` to `mbedtls_cpp` (`find_package(mbedtls_cpp CONFIG)`, target `mbedtls::cpp`). It no longer
-  provides `MbedTLS::mbedtls`, `MbedTLS::mbedx509` and `MbedTLS::tfpsacrypto` and no longer ships the Mbed TLS / PSA headers: the C
-  API is not exported by the shared library.
-- **CMake and CI restructured after libstb:** `Startup` / `Optimize` modules, `src/bindings/python/CMakeLists.txt`, options
-  `MBEDTLS_CPP_BUILD_TESTS` / `_PYTHON` / `_EXAMPLES`, the extension built through `build_python` for `ctest`, Python and
-  `find_package` consumer tests (`tests/python`, `tests/cmake`), and `cmake.yml` / `wheels.yml` / `orchestrator.yml` in libstb's shape.
-
-### Removed
-- The prebuilt archive (`prebuilt.yml`, CPack): the wheel carries the SDK.
-- `cmake/DynamicVersion.cmake` (unused since the version moved to `pyproject.toml`).
+  `find_package(MbedTLS CONFIG)` and `mbedtls::cpp` work as before; the package no longer provides `MbedTLS::mbedtls`,
+  `MbedTLS::mbedx509` and `MbedTLS::tfpsacrypto` and no longer ships the Mbed TLS / PSA headers, because the shared library does
+  not export the C API.
+- **CMake and CI after libstb's structure:** `Startup` / `Optimize` modules, `src/bindings/python/CMakeLists.txt`, options
+  `MBEDTLS_CPP_BUILD_PYTHON` / `_EXAMPLES` next to `MBEDTLS_CPP_BUILD_TESTS`, the extension built through `build_python` for
+  `ctest`, Python and `find_package` consumer tests (`tests/python`, `tests/cmake`), `cmake.yml` / `wheels.yml` in libstb's shape.
 
 ## [0.1.0] - 2026-10-24
 

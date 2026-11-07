@@ -16,7 +16,7 @@ if(DEFINED SKBUILD)
     python_add_library(_mbedtls_cy MODULE "${_mbedtls_cxx}" WITH_SOABI ${USE_SABI})
     target_link_libraries(_mbedtls_cy PRIVATE mbedtls::cpp)
 
-    # libmbedtls_cpp.so / libmbedtls_cpp.dylib is installed in mbedtls/sdk/lib, next to nothing else but the cmake
+    # libmbedtls_cpp_core.so / libmbedtls_cpp_core.dylib is installed in mbedtls/sdk/lib, next to nothing else but the cmake
     # folder (and mbedtls/sdk/include beside it): the extension finds it from there. (Windows has no rpath:
     # mbedtls/__init__.py registers that folder with os.add_dll_directory.)
     if(APPLE)
@@ -51,4 +51,4 @@ ExternalProject_Add(build_python
     BUILD_ALWAYS 1
     USES_TERMINAL_BUILD 1
 )
-add_dependencies(build_python mbedtls_core)
+add_dependencies(build_python mbedtls_cpp_core)

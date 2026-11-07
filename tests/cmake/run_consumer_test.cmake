@@ -1,6 +1,6 @@
 # cmake -DMODE=python|prefix -DPYTHON_INSTALL_DIR=... -DMAIN_BINARY_DIR=... -DEXAMPLE_SOURCE_DIR=...
-#       -DEXAMPLE_BINARY_DIR=... -P run_consumer_test.cmake
-foreach(var MODE PYTHON_INSTALL_DIR MAIN_BINARY_DIR EXAMPLE_SOURCE_DIR EXAMPLE_BINARY_DIR)
+#       -DEXAMPLE_BINARY_DIR=... -DEXAMPLE_EXE=app|consumer -P run_consumer_test.cmake
+foreach(var MODE PYTHON_INSTALL_DIR MAIN_BINARY_DIR EXAMPLE_SOURCE_DIR EXAMPLE_BINARY_DIR EXAMPLE_EXE)
     if(NOT DEFINED ${var})
         message(FATAL_ERROR "run_consumer_test.cmake: ${var} not set")
     endif()
@@ -11,7 +11,7 @@ file(REMOVE_RECURSE "${EXAMPLE_BINARY_DIR}")
 if(MODE STREQUAL "python")
     # Same pattern as nanobind/pybind11: the installed package says where its CMake config lives.
     set(_env ${CMAKE_COMMAND} -E env "PYTHONPATH=${PYTHON_INSTALL_DIR}")
-    set(_configure_args -DMBEDTLS_CPP_FROM_PYTHON=ON)
+    set(_configure_args)
 elseif(MODE STREQUAL "prefix")
     set(_prefix "${EXAMPLE_BINARY_DIR}-prefix")
     file(REMOVE_RECURSE "${_prefix}")
@@ -42,7 +42,7 @@ if(NOT build_result EQUAL 0)
 endif()
 
 execute_process(
-    COMMAND "${EXAMPLE_BINARY_DIR}/consumer"
+    COMMAND "${EXAMPLE_BINARY_DIR}/${EXAMPLE_EXE}"
     RESULT_VARIABLE run_result OUTPUT_VARIABLE run_output ERROR_VARIABLE run_output)
 if(NOT run_result EQUAL 0)
     message(FATAL_ERROR "consumer failed to run:\n${run_output}")

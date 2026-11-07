@@ -14,7 +14,7 @@ except Exception:
 _pkg_dir = _os.path.dirname(_os.path.abspath(__file__))
 
 # The C++ SDK (headers, the native core and its CMake package) is an install prefix inside the package,
-# mbedtls/sdk/. The core is a shared library in mbedtls/sdk/lib (libmbedtls_cpp.so, libmbedtls_cpp.dylib: found
+# mbedtls/sdk/. The core is a shared library in mbedtls/sdk/lib (libmbedtls_cpp_core.so, libmbedtls_cpp_core.dylib: found
 # through the extension's rpath). Windows has no rpath and does not search PATH for the DLLs of an extension module,
 # so the directory is added by hand, before the first import of the extension below. os.add_dll_directory exists only
 # there: asking for the function, not the platform, is the check.
@@ -35,13 +35,13 @@ def get_include_dir() -> str:
 
 
 def get_lib_dir() -> str:
-    """Directory with the shared C++ library: libmbedtls_cpp.so, libmbedtls_cpp.dylib or mbedtls_cpp.dll (<sdk>/lib)."""
+    """Directory with the shared C++ library: libmbedtls_cpp_core.so, libmbedtls_cpp_core.dylib or mbedtls_cpp_core.dll (<sdk>/lib)."""
     return _lib_dir
 
 
 def get_cmake_dir() -> str:
-    """Directory with mbedtls_cppConfig.cmake: use as mbedtls_cpp_DIR, then link mbedtls::cpp (<sdk>/lib/cmake/mbedtls_cpp)."""
-    return _os.path.join(_lib_dir, "cmake", "mbedtls_cpp")
+    """Directory with MbedTLSConfig.cmake: use as MbedTLS_DIR, then link mbedtls::cpp (<sdk>/lib/cmake/MbedTLS)."""
+    return _os.path.join(_lib_dir, "cmake", "MbedTLS")
 
 
 from . import x509
