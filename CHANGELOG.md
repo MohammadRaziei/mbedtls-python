@@ -8,18 +8,34 @@ such changes are listed under **Changed**). The version of the project is the `v
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-07
+
+The C++ core becomes a shared library and the wheel carries it as a ready-to-use SDK. While the major version is 0 this is a
+minor release: the CMake package changes, see **Changed**.
+
+### Added
+- **`mbedtls/sdk/` in every wheel:** `include/`, `lib/` (the shared library) and `lib/cmake/MbedTLS/`, the same tree `cmake --install`
+  makes. `mbedtls.get_sdk_dir()` and `python -m mbedtls --sdk-dir` print its root; `get_include_dir()`, `get_lib_dir()` and
+  `get_cmake_dir()` point into it, so a C++ project needs only `pip install mbedtls` and `python -m mbedtls --cmake-dir`.
+- **Export header** `include/mbedtls_cpp/export.hpp` (`MBEDTLS_CPP_API`): the classes and functions of `include/mbedtls.hpp` are exported
+  from the shared library, everything else stays hidden.
+- **CMake options** `MBEDTLS_CPP_BUILD_PYTHON` and `MBEDTLS_CPP_BUILD_EXAMPLES` next to `MBEDTLS_CPP_BUILD_TESTS`. With Python on, `cmake --build`
+  also builds the extension (target `build_python`) and installs the package with the wheel's layout into `build/python/install`.
+- **Consumer tests under `ctest`:** `tests/python` runs `pytest` against that package, `tests/cmake` builds `examples/find_mbedtls_via_python`
+  against it and `examples/consumer` against a `cmake --install` prefix, and runs both.
+
 ### Changed
-- **The C++ core is now a shared library**, `mbedtls_cpp_core` (`libmbedtls_cpp_core.so`, `.dylib`, `mbedtls_cpp_core.dll`; target
-  `mbedtls::cpp` as before), with Mbed TLS linked statically inside it and hidden: only `include/mbedtls.hpp` is exported
-  (`MBEDTLS_CPP_API`, `include/mbedtls_cpp/export.hpp`). The Python extension and C++ programs share one copy.
-- **The wheel carries the SDK as `mbedtls/sdk/`** (`include/`, `lib/`, `lib/cmake/MbedTLS/`), the same tree `cmake --install` makes.
-  New `mbedtls.get_sdk_dir()` and `--sdk-dir`; `get_include_dir()`, `get_lib_dir()` and `get_cmake_dir()` point into it.
-  `find_package(MbedTLS CONFIG)` and `mbedtls::cpp` work as before; the package no longer provides `MbedTLS::mbedtls`,
-  `MbedTLS::mbedx509` and `MbedTLS::tfpsacrypto` and no longer ships the Mbed TLS / PSA headers, because the shared library does
-  not export the C API.
-- **CMake and CI after libstb's structure:** `Startup` / `Optimize` modules, `src/bindings/python/CMakeLists.txt`, options
-  `MBEDTLS_CPP_BUILD_PYTHON` / `_EXAMPLES` next to `MBEDTLS_CPP_BUILD_TESTS`, the extension built through `build_python` for
-  `ctest`, Python and `find_package` consumer tests (`tests/python`, `tests/cmake`), `cmake.yml` / `wheels.yml` in libstb's shape.
+- **The C++ core is a shared library**, `mbedtls_cpp_core` (`libmbedtls_cpp_core.so`, `.dylib`, `mbedtls_cpp_core.dll`; target
+  `mbedtls::cpp` as before), with Mbed TLS linked statically inside it and hidden. The Python extension and C++ programs share one copy,
+  and no Mbed TLS symbol leaks, so another copy in the same process cannot clash.
+- **CMake package:** `find_package(MbedTLS CONFIG)` and `mbedtls::cpp` work as before, but the package no longer provides `MbedTLS::mbedtls`,
+  `MbedTLS::mbedx509` and `MbedTLS::tfpsacrypto` and no longer ships the Mbed TLS / PSA headers, because the shared library does not export
+  the C API. The prebuilt `mbedtls-cpp-core-*` archives now contain the shared library. On Windows a program needs `mbedtls_cpp_core.dll`
+  beside it (the examples copy it).
+- **Build system and CI after libstb's structure:** `Startup` and `Optimize` modules, the Python part in `src/bindings/python/CMakeLists.txt`,
+  `cmake.yml` and `wheels.yml` in libstb's shape (the wheels job no longer stops at the first failing platform). The C++ tests compile the core
+  into a static library, because they call the Mbed TLS / PSA C API directly.
+- `requirements-dev.txt` adds `cython` (needed by `build_python`).
 
 ## [0.1.0] - 2026-10-24
 
@@ -58,5 +74,6 @@ First release. Python bindings for Mbed TLS 4.2.0, linked statically into the ex
   code is shown next to it.
 - Tested on Linux with Python 3.12. The workflows have not run on GitHub yet; Windows, macOS and CPython 3.9 are untested.
 
-[Unreleased]: https://github.com/MohammadRaziei/mbedtls-python/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/MohammadRaziei/mbedtls-python/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/MohammadRaziei/mbedtls-python/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MohammadRaziei/mbedtls-python/releases/tag/v0.1.0

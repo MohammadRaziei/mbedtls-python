@@ -16,7 +16,7 @@ symbol clash with another copy of Mbed TLS in the same process. The wheel carrie
 import mbedtls
 
 mbedtls.__mbedtls_version__             # "4.2.0"  (the Mbed TLS this wheel was built against)
-mbedtls.__version__                     # "0.1.0"  (this Python package)
+mbedtls.__version__                     # "0.2.0"  (this Python package)
 mbedtls.algorithms                      # ("md5", "sha1", "sha224", "sha256", "sha384", "sha512", "sha3_224", ...)
 mbedtls.digest("sha3_256", b"abc")      # bytes; names are spelled like hashlib's
 mbedtls.sha256(b"abc")                  # shorthand for digest("sha256", ...)
