@@ -13,11 +13,12 @@ if(DEFINED SKBUILD)
     if(SKBUILD_SOABI)
         set(Python_SOABI ${SKBUILD_SOABI})
     endif()
-    python_add_library(_mbedtls_cy MODULE "${_mbedtls_cxx}" WITH_SOABI ${USE_SABI})
-    target_link_libraries(_mbedtls_cy PRIVATE mbedtls::cpp)
+    python_add_library(_mbedtls_cy MODULE "${_mbedtls_cxx}" ${MBEDTLS_CPP_SHIM_SOURCES} WITH_SOABI ${USE_SABI})
+    mbedtls_cpp_apply_shim_build_settings(_mbedtls_cy)
+    target_link_libraries(_mbedtls_cy PRIVATE mbedtls mbedx509 tfpsacrypto Threads::Threads)
 
-    # libmbedtls_cpp_core.so / libmbedtls_cpp_core.dylib is installed in mbedtls/sdk/lib, next to nothing else but the cmake
-    # folder (and mbedtls/sdk/include beside it): the extension finds it from there. (Windows has no rpath:
+    # libmbedtls.so, libmbedx509.so and libtfpsacrypto.so (Mbed TLS itself) are installed in mbedtls/sdk/lib, with the cmake
+    # folder (and mbedtls/sdk/include beside it): the extension finds them from there. (Windows has no rpath:
     # mbedtls/__init__.py registers that folder with os.add_dll_directory.)
     if(APPLE)
         set_target_properties(_mbedtls_cy PROPERTIES INSTALL_RPATH "@loader_path/sdk/lib")
@@ -51,4 +52,3 @@ ExternalProject_Add(build_python
     BUILD_ALWAYS 1
     USES_TERMINAL_BUILD 1
 )
-add_dependencies(build_python mbedtls_cpp_core)

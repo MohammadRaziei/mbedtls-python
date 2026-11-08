@@ -74,7 +74,7 @@ test-extras = ["test"]
 [tool.cibuildwheel.linux]
 repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"
 
-# The core DLL (mbedtls_cpp.dll) already sits in the wheel, in mbedtls/sdk/lib, and is registered with
+# The Mbed TLS DLLs already sit in the wheel, in mbedtls/sdk/lib, and is registered with
 # os.add_dll_directory by mbedtls/__init__.py: there is nothing for delvewheel to bundle. cibuildwheel 4.x runs it on
 # Windows by default.
 [tool.cibuildwheel.windows]

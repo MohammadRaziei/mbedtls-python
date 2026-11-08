@@ -17,26 +17,32 @@ endif()
 
 include(Optimize)
 
-option(MBEDTLS_CPP_BUILD_TESTS "Build the C++ tests, and register the Python and CMake-consumer tests" ${PROJECT_IS_TOP_LEVEL})
+option(MBEDTLS_CPP_BUILD_TESTS "Build the C++ tests of the Python shim, and register the Python and CMake-consumer tests" ${PROJECT_IS_TOP_LEVEL})
 option(MBEDTLS_CPP_BUILD_PYTHON "Build the Python bindings" ${PROJECT_IS_TOP_LEVEL})
-option(MBEDTLS_CPP_BUILD_EXAMPLES "Build the C++ example in examples/consumer" OFF)
+option(MBEDTLS_CPP_BUILD_EXAMPLES "Build the C example in examples/consumer against the Mbed TLS built here" OFF)
 option(MBEDTLS_CPP_THREADING_ALT "Use the alt threading layer (always on for Windows) instead of pthread" OFF)
 
-# --- Mbed TLS (git submodule, built from source, linked statically) ---
-# Static libs end up inside the Python extension (a shared object), so they must be PIC. Hidden visibility keeps
-# every mbedtls symbol out of the .so's exports: another copy in the same process (httpp, python-mbedtls) cannot clash.
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-set(CMAKE_C_VISIBILITY_PRESET hidden)
-set(CMAKE_CXX_VISIBILITY_PRESET hidden)
-set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
+# --- Mbed TLS (git submodule), built as shared libraries and installed as the SDK ---
+# The SDK is Mbed TLS itself, nothing wrapped around it: include/mbedtls, include/psa, libmbedtls / libmbedx509 /
+# libtfpsacrypto (shared) and lib/cmake/MbedTLS (find_package(MbedTLS) -> MbedTLS::mbedtls, MbedTLS::mbedx509,
+# MbedTLS::tfpsacrypto), all written by Mbed TLS's own install rules. In a wheel the prefix is mbedtls/sdk inside the
+# package (see get_sdk_dir() in the Python package); a plain `cmake --install` uses the usual prefix layout.
+if(DEFINED SKBUILD)
+    set(MBEDTLS_CPP_SDK_REL mbedtls/sdk)
+    # GNUInstallDirs keeps what is already in the cache, so Mbed TLS's install(... ${CMAKE_INSTALL_LIBDIR}) lands in the sdk.
+    set(CMAKE_INSTALL_INCLUDEDIR ${MBEDTLS_CPP_SDK_REL}/include CACHE PATH "" FORCE)
+    set(CMAKE_INSTALL_LIBDIR ${MBEDTLS_CPP_SDK_REL}/lib CACHE PATH "" FORCE)
+    set(CMAKE_INSTALL_BINDIR ${MBEDTLS_CPP_SDK_REL}/lib CACHE PATH "" FORCE)  # mbedtls.dll beside mbedtls.lib; __init__.py adds it with os.add_dll_directory
+else()
+    set(MBEDTLS_CPP_SDK_REL "")
+endif()
 
 set(ENABLE_PROGRAMS OFF CACHE BOOL "" FORCE)
 set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 set(MBEDTLS_FATAL_WARNINGS OFF CACHE BOOL "" FORCE)
-set(USE_STATIC_MBEDTLS_LIBRARY ON CACHE BOOL "" FORCE)
-set(USE_SHARED_MBEDTLS_LIBRARY OFF CACHE BOOL "" FORCE)
-# mbedtls's own install() rules are unconditional unless this is forced ON; nothing from it belongs in our install.
-set(DISABLE_PACKAGE_CONFIG_AND_INSTALL ON CACHE BOOL "" FORCE)
+set(USE_STATIC_MBEDTLS_LIBRARY OFF CACHE BOOL "" FORCE)
+set(USE_SHARED_MBEDTLS_LIBRARY ON CACHE BOOL "" FORCE)
+set(DISABLE_PACKAGE_CONFIG_AND_INSTALL OFF CACHE BOOL "" FORCE)  # Mbed TLS writes the install and the CMake package
 
 # The codegen'd sources (library/error.c, psa_crypto_driver_wrappers_no_static.c, ...) must exist before
 # add_subdirectory(). Mbed TLS generates them itself only on Linux/macOS (GEN_FILES defaults OFF on Windows, where it
@@ -62,7 +68,8 @@ if(NOT _gen_result EQUAL 0)
     message(FATAL_ERROR "Failed to generate mbedtls sources (exit ${_gen_result})")
 endif()
 
-# Thread safety: see cmake/mbedtls_config.h.
+# Thread safety: see cmake/mbedtls_config.h. It is a user config appended to the default one, and it is installed with the
+# headers (below), because anything that includes the installed headers must see the same configuration.
 set(TF_PSA_CRYPTO_USER_CONFIG_FILE ${PROJECT_SOURCE_DIR}/cmake/mbedtls_config.h CACHE FILEPATH "" FORCE)
 find_package(Threads REQUIRED)
 set(LINK_WITH_PTHREAD ON CACHE BOOL "" FORCE)
@@ -74,75 +81,39 @@ endif()
 if(WIN32 OR MBEDTLS_CPP_THREADING_ALT)
     include_directories(${PROJECT_SOURCE_DIR}/src/alt)
 endif()
-add_subdirectory(${_mbedtls_dir} EXCLUDE_FROM_ALL)
+add_subdirectory(${_mbedtls_dir})  # in `all`: the install below needs the libraries built
 
-# --- mbedtls_cpp C++ core ---
-# The core is always a shared library (libmbedtls_cpp_core.so, libmbedtls_cpp_core.dylib, mbedtls_cpp_core.dll): the Python
-# extension and every C++ program link to the same copy, which is what lets a wheel carry one engine. Mbed TLS is
-# linked statically *into* it, with hidden visibility: only what include/mbedtls.hpp marks MBEDTLS_CPP_API is exported
-# (include/mbedtls_cpp/export.hpp), so no Mbed TLS symbol leaks and another copy in the same process cannot clash.
-set(MBEDTLS_CPP_CORE_SOURCES ${PROJECT_SOURCE_DIR}/src/mbedtls.cpp)
-
-add_library(mbedtls_cpp_core SHARED ${MBEDTLS_CPP_CORE_SOURCES})
-target_compile_definitions(mbedtls_cpp_core PRIVATE MBEDTLS_CPP_BUILDING_LIBRARY)
-target_compile_features(mbedtls_cpp_core PUBLIC cxx_std_17)  # mbedtls.hpp uses std::string_view
-add_library(mbedtls::cpp ALIAS mbedtls_cpp_core)
-
-set_target_properties(mbedtls_cpp_core PROPERTIES
-    CXX_VISIBILITY_PRESET hidden
-    VISIBILITY_INLINES_HIDDEN ON
-    EXPORT_NAME cpp                     # consumers link mbedtls::cpp
-)
-if(NOT DEFINED SKBUILD)
-    # libmbedtls_cpp_core.so -> ...so.0.1 -> ...so.0.1.0 in a plain install. A wheel carries a
-    # single file (zip has no symlinks), so it gets no version suffix.
-    set_target_properties(mbedtls_cpp_core PROPERTIES
-        VERSION ${PROJECT_VERSION}
-        SOVERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
-    )
-endif()
-# MSVC: the exported classes hold std::string / std::vector members (C4251) and derive from std exceptions (C4275).
-# Both are fine as long as the library and its users use the same compiler and runtime, which a DLL of C++ classes
-# already requires.
-target_compile_options(mbedtls_cpp_core PUBLIC $<$<CXX_COMPILER_ID:MSVC>:/wd4251 /wd4275>)
-if(UNIX AND NOT APPLE) # belt and braces next to hidden visibility
-    target_link_options(mbedtls_cpp_core PRIVATE -Wl,--exclude-libs,ALL)
-endif()
-
-# Install layout: the wheel carries the C++ SDK as a regular install prefix, mbedtls/sdk/ (include/, lib/ and
-# lib/cmake/MbedTLS/ inside it: the same tree `cmake --install` makes; see get_sdk_dir() in the Python package).
-# A plain `cmake --install` uses the usual prefix layout.
+# A wheel carries one file per library (zip has no symlinks): no version suffix, the soname is plain libmbedtls.so.
 if(DEFINED SKBUILD)
-    set(_mbcpp_sdk_dest   mbedtls/sdk)
-    set(_mbcpp_lib_dest   ${_mbcpp_sdk_dest}/lib)
-    set(_mbcpp_bin_dest   ${_mbcpp_sdk_dest}/lib)  # mbedtls_cpp_core.dll beside mbedtls_cpp_core.lib; mbedtls/__init__.py adds it with os.add_dll_directory
-    set(_mbcpp_inc_dest   ${_mbcpp_sdk_dest}/include)
-    set(_mbcpp_cmake_dest ${_mbcpp_sdk_dest}/lib/cmake/MbedTLS)
-else()
-    include(GNUInstallDirs)
-    set(_mbcpp_lib_dest   ${CMAKE_INSTALL_LIBDIR})
-    set(_mbcpp_bin_dest   ${CMAKE_INSTALL_BINDIR})
-    set(_mbcpp_inc_dest   ${CMAKE_INSTALL_INCLUDEDIR})
-    set(_mbcpp_cmake_dest ${CMAKE_INSTALL_LIBDIR}/cmake/MbedTLS)
+    set_target_properties(mbedtls mbedx509 tfpsacrypto PROPERTIES VERSION "" SOVERSION "")
 endif()
 
-target_include_directories(mbedtls_cpp_core
-    PUBLIC
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:${_mbcpp_inc_dest}>
-)
+# Mbed TLS puts the user config's absolute path in its targets (a PUBLIC compile definition), which would point an
+# installed package into this build tree. Exported, it is the copy installed beside the headers instead.
+foreach(_t mbedtls mbedx509 tfpsacrypto)
+    get_target_property(_defs ${_t} INTERFACE_COMPILE_DEFINITIONS)
+    list(FILTER _defs EXCLUDE REGEX "^TF_PSA_CRYPTO_USER_CONFIG_FILE=")
+    list(APPEND _defs
+        "$<BUILD_INTERFACE:TF_PSA_CRYPTO_USER_CONFIG_FILE=\"${TF_PSA_CRYPTO_USER_CONFIG_FILE}\">"
+        "$<INSTALL_INTERFACE:TF_PSA_CRYPTO_USER_CONFIG_FILE=\"$<INSTALL_PREFIX>/${CMAKE_INSTALL_INCLUDEDIR}/mbedtls_python_config.h\">")
+    set_target_properties(${_t} PROPERTIES INTERFACE_COMPILE_DEFINITIONS "${_defs}")
+endforeach()
 
-# Everything that decides how the core sources are compiled lives in this function, so a target that compiles them
-# itself (tests/cpp does: the tests call the Mbed TLS / PSA C API directly, which the shared library does not export)
-# gets exactly the same settings as mbedtls_cpp_core.
-function(mbedtls_cpp_apply_core_build_settings target)
-    # A target that compiles the core sources itself has no library to import from: MBEDTLS_CPP_API must be empty
-    # there. mbedtls_cpp_core builds with MBEDTLS_CPP_BUILDING_LIBRARY instead.
-    # (mbedtls_cpp_core also has its include directory, with the install-tree variant, set above.)
-    if(NOT target STREQUAL "mbedtls_cpp_core")
-        target_compile_definitions(${target} PUBLIC MBEDTLS_CPP_STATIC_DEFINE)
-        target_include_directories(${target} PUBLIC ${PROJECT_SOURCE_DIR}/include)
-    endif()
+# Next to the headers: that user config, and threading_alt.h which it includes where the alt threading layer is used.
+install(FILES ${PROJECT_SOURCE_DIR}/cmake/mbedtls_config.h RENAME mbedtls_python_config.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(FILES ${PROJECT_SOURCE_DIR}/src/alt/threading_alt.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+# --- the private C++ shim of the Python extension ---
+# src/bindings/python/shim: small C++ classes over the Mbed TLS / PSA C API (hashes, HMAC, random bytes, X.509) that
+# the Cython module wraps. It is compiled into the extension (and into the C++ tests); it is not installed and not part
+# of the SDK. Everything it calls is the public C API of the libraries above.
+set(MBEDTLS_CPP_SHIM_DIR ${PROJECT_SOURCE_DIR}/src/bindings/python/shim)
+set(MBEDTLS_CPP_SHIM_SOURCES ${MBEDTLS_CPP_SHIM_DIR}/mbedtls_shim.cpp)
+
+function(mbedtls_cpp_apply_shim_build_settings target)
+    target_include_directories(${target} PUBLIC ${MBEDTLS_CPP_SHIM_DIR})
+    target_compile_features(${target} PUBLIC cxx_std_17)  # string_view
     target_compile_options(${target} PRIVATE
         $<$<CXX_COMPILER_ID:MSVC>:/W4 /EHsc>
         $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra>
@@ -150,46 +121,19 @@ function(mbedtls_cpp_apply_core_build_settings target)
     apply_optimization_flags(${target})
 endfunction()
 
-mbedtls_cpp_apply_core_build_settings(mbedtls_cpp_core)
-target_link_libraries(mbedtls_cpp_core PRIVATE mbedtls mbedx509 tfpsacrypto Threads::Threads)
-
-# --- install (find_package(MbedTLS CONFIG): mbedtls::cpp) ---
-# Two consumers: `cmake --install build --prefix <dir>` / `cpack` (see .github/workflows/prebuilt.yml), and the wheel,
-# which carries the same package inside mbedtls/sdk/ so that `pip install mbedtls` + `python -m mbedtls --cmake-dir` is
-# all a C++ project needs (mbedtls.get_cmake_dir() / get_include_dir() / get_lib_dir() / get_sdk_dir()).
-if(PROJECT_IS_TOP_LEVEL)
-    include(CMakePackageConfigHelpers)
-    # The export set is not called MbedTLSTargets: Mbed TLS's own install rules use that name, and its targets would end up in ours.
-    install(TARGETS mbedtls_cpp_core EXPORT mbedtls_cpp_core_export
-        LIBRARY DESTINATION ${_mbcpp_lib_dest}     # libmbedtls_cpp_core.so, libmbedtls_cpp_core.dylib
-        RUNTIME DESTINATION ${_mbcpp_bin_dest}     # mbedtls_cpp_core.dll
-        ARCHIVE DESTINATION ${_mbcpp_lib_dest}     # mbedtls_cpp_core.lib, the import library on Windows
-    )
-    install(DIRECTORY include/ DESTINATION ${_mbcpp_inc_dest})
-    install(EXPORT mbedtls_cpp_core_export FILE MbedTLSTargets.cmake NAMESPACE mbedtls:: DESTINATION ${_mbcpp_cmake_dest})
-    configure_package_config_file(cmake/MbedTLSConfig.cmake.in ${PROJECT_BINARY_DIR}/MbedTLSConfig.cmake
-        INSTALL_DESTINATION ${_mbcpp_cmake_dest})
-    # The package answers to find_package(MbedTLS <version>), so it reports Mbed TLS's version, not this project's.
-    file(STRINGS ${_mbedtls_dir}/include/mbedtls/build_info.h _mbedtls_ver_line REGEX "define MBEDTLS_VERSION_STRING ")
-    string(REGEX REPLACE ".*\"([0-9]+\\.[0-9]+\\.[0-9]+)\".*" "\\1" _mbedtls_version "${_mbedtls_ver_line}")
-    write_basic_package_version_file(${PROJECT_BINARY_DIR}/MbedTLSConfigVersion.cmake
-        VERSION ${_mbedtls_version} COMPATIBILITY SameMajorVersion)
-    install(FILES ${PROJECT_BINARY_DIR}/MbedTLSConfig.cmake ${PROJECT_BINARY_DIR}/MbedTLSConfigVersion.cmake
-            DESTINATION ${_mbcpp_cmake_dest})
-
-    if(NOT DEFINED SKBUILD)
-        # ponytail: the archive is only as portable as the runner that built it (glibc of ubuntu-latest, macOS arch of
-        # macos-latest, no universal2). Upgrade path: build the Linux one in a manylinux container.
-        set(CPACK_PACKAGE_NAME mbedtls-cpp-core)
-        set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
-        set(CPACK_PACKAGE_FILE_NAME mbedtls-cpp-core-${PROJECT_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR})
-        if(WIN32)
-            set(CPACK_GENERATOR ZIP)
-        else()
-            set(CPACK_GENERATOR TGZ)
-        endif()
-        include(CPack)
+# --- install: Mbed TLS's own rules above; here only what the whole build adds (a plain `cmake --install`) ---
+if(PROJECT_IS_TOP_LEVEL AND NOT DEFINED SKBUILD)
+    # ponytail: the archive is only as portable as the runner that built it (glibc of ubuntu-latest, macOS arch of
+    # macos-latest, no universal2). Upgrade path: build the Linux one in a manylinux container.
+    set(CPACK_PACKAGE_NAME mbedtls)
+    set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+    set(CPACK_PACKAGE_FILE_NAME mbedtls-${PROJECT_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR})
+    if(WIN32)
+        set(CPACK_GENERATOR ZIP)
+    else()
+        set(CPACK_GENERATOR TGZ)
     endif()
+    include(CPack)
 endif()
 
 if(MBEDTLS_CPP_BUILD_PYTHON OR DEFINED SKBUILD)

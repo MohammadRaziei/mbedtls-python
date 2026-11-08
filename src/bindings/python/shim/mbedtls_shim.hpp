@@ -2,7 +2,7 @@
 // C++ layer over Mbed TLS: hashes, HMAC, random bytes and X.509 certificates, as small classes. Data goes in as
 // std::string_view and comes out as std::string: both are plain byte containers here, embedded NULs included.
 // Errors are exceptions, derived from std types so that Cython maps them to ValueError / RuntimeError by itself.
-// Implementation: src/mbedtls.cpp.
+// Implementation: mbedtls_shim.cpp.
 
 #include <cstddef>
 #include <cstdint>
@@ -11,7 +11,9 @@
 #include <string_view>
 #include <vector>
 
-#include "mbedtls_cpp/export.hpp"
+// Private to the Python extension: not installed, not exported (the SDK is Mbed TLS itself). The macro stays so the
+// declarations read as before.
+#define MBEDTLS_CPP_API
 
 namespace mbedtls {
 

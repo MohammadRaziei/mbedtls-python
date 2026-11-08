@@ -8,6 +8,17 @@ such changes are listed under **Changed**). The version of the project is the `v
 
 ## [Unreleased]
 
+### Changed
+- **The SDK is Mbed TLS itself.** It is built as shared libraries and installed whole by Mbed TLS's own install rules: `include/mbedtls`,
+  `include/psa`, `libmbedtls` / `libmbedx509` / `libtfpsacrypto`, `lib/cmake/MbedTLS` (`MbedTLS::mbedtls`, `MbedTLS::mbedx509`,
+  `MbedTLS::tfpsacrypto`). The wheel carries it as `mbedtls/sdk/`. The project's user config (thread safety) is installed beside the
+  headers as `mbedtls_python_config.h`, and the exported targets point at it.
+- **`mbedtls_cpp_core`, `mbedtls::cpp`, `mbedtls.hpp` and `export.hpp` are gone.** The C++ classes are now a private shim inside the Python
+  extension (`src/bindings/python/shim`), not installed. Hidden visibility is gone too: another copy of Mbed TLS in the same process is
+  no longer isolated.
+- `examples/consumer` is a C program on `MbedTLS::tfpsacrypto`; the prebuilt archive is `mbedtls-*`.
+- Where the alt threading layer is used (Windows), an application using the SDK registers it itself (`mbedtls_threading_set_alt()`).
+
 ## [0.2.0] - 2026-11-07
 
 The C++ core becomes a shared library and the wheel carries it as a ready-to-use SDK. While the major version is 0 this is a

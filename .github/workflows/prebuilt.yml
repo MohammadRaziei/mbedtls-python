@@ -1,6 +1,6 @@
 name: prebuilt core
 
-# The C++ core (the shared library mbedtls_cpp_core, Mbed TLS inside) as a relocatable package: install it, build the example consumer
+# Mbed TLS itself (shared libraries, headers, CMake package) as a relocatable install: install it, build the example consumer
 # against the install prefix, then pack the same install as an archive per OS.
 
 on:
@@ -54,5 +54,5 @@ jobs:
     - uses: actions/upload-artifact@v7
       with:
         name: prebuilt-${{ matrix.os }}
-        path: dist/mbedtls-cpp-core-*
+        path: dist/mbedtls-*
         overwrite: false

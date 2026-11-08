@@ -1,4 +1,4 @@
-"""Python bindings for Mbed TLS: thread-safe, one abi3 wheel for CPython 3.9+, with the C++ SDK (a shared library) inside."""
+"""Python bindings for Mbed TLS: thread-safe, one abi3 wheel for CPython 3.9+, with Mbed TLS itself (shared libraries, headers, CMake package) inside, as the SDK."""
 
 import os as _os
 
@@ -13,9 +13,9 @@ except Exception:
 
 _pkg_dir = _os.path.dirname(_os.path.abspath(__file__))
 
-# The C++ SDK (headers, the native core and its CMake package) is an install prefix inside the package,
-# mbedtls/sdk/. The core is a shared library in mbedtls/sdk/lib (libmbedtls_cpp_core.so, libmbedtls_cpp_core.dylib: found
-# through the extension's rpath). Windows has no rpath and does not search PATH for the DLLs of an extension module,
+# The SDK is an install prefix of Mbed TLS itself inside the package, mbedtls/sdk/: include/mbedtls, include/psa, the
+# shared libraries in lib/ (libmbedtls, libmbedx509, libtfpsacrypto: found through the extension's rpath) and
+# lib/cmake/MbedTLS (find_package(MbedTLS)). Windows has no rpath and does not search PATH for the DLLs of an extension module,
 # so the directory is added by hand, before the first import of the extension below. os.add_dll_directory exists only
 # there: asking for the function, not the platform, is the check.
 _sdk_dir = _os.path.join(_pkg_dir, "sdk")
@@ -25,22 +25,22 @@ if hasattr(_os, "add_dll_directory") and _os.path.isdir(_lib_dir):  # pragma: no
 
 
 def get_sdk_dir() -> str:
-    """Root of the C++ SDK inside the package: an install prefix with include/ and lib/."""
+    """Root of the Mbed TLS install inside the package: an install prefix with include/ and lib/."""
     return _sdk_dir
 
 
 def get_include_dir() -> str:
-    """Directory with mbedtls.hpp (<sdk>/include)."""
+    """Directory with the Mbed TLS headers: mbedtls/, psa/ (<sdk>/include)."""
     return _os.path.join(_sdk_dir, "include")
 
 
 def get_lib_dir() -> str:
-    """Directory with the shared C++ library: libmbedtls_cpp_core.so, libmbedtls_cpp_core.dylib or mbedtls_cpp_core.dll (<sdk>/lib)."""
+    """Directory with the Mbed TLS shared libraries: libmbedtls, libmbedx509, libtfpsacrypto (<sdk>/lib)."""
     return _lib_dir
 
 
 def get_cmake_dir() -> str:
-    """Directory with MbedTLSConfig.cmake: use as MbedTLS_DIR, then link mbedtls::cpp (<sdk>/lib/cmake/MbedTLS)."""
+    """Directory with MbedTLSConfig.cmake: use as MbedTLS_DIR, then link MbedTLS::mbedtls etc. (<sdk>/lib/cmake/MbedTLS)."""
     return _os.path.join(_lib_dir, "cmake", "MbedTLS")
 
 

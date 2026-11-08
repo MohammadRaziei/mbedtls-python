@@ -9,7 +9,7 @@ def cli():
     p = argparse.ArgumentParser(prog="mbedtls")
     p.add_argument("--sdk-dir", "--sdk_dir", action="store_true", help="print the root of the C++ SDK (include/, lib/)")
     p.add_argument("--cmake-dir", "--cmake_dir", action="store_true", help="print the directory with MbedTLSConfig.cmake")
-    p.add_argument("--include-dir", "--include_dir", action="store_true", help="print the directory with mbedtls.hpp")
+    p.add_argument("--include-dir", "--include_dir", action="store_true", help="print the directory with the Mbed TLS headers")
     p.add_argument("--lib-dir", "--lib_dir", action="store_true", help="print the directory with the shared library")
     a = p.parse_args()
     for flag, getter in ((a.sdk_dir, get_sdk_dir), (a.cmake_dir, get_cmake_dir), (a.include_dir, get_include_dir),

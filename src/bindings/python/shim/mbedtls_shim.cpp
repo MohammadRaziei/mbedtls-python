@@ -1,10 +1,10 @@
-// The C++ layer: init (threading + PSA), hashes/HMAC/random, X.509. See include/mbedtls.hpp.
+// The shim: init (threading + PSA), hashes/HMAC/random, X.509 over the Mbed TLS C API. See mbedtls_shim.hpp. Private to the Python extension.
 // ponytail: is_ca is read from a field Mbed TLS 4.2 marks private (ca_istrue), because it has no accessor for it, so
 // the whole file is compiled with private access. Upgrade path: drop the define the day an accessor exists; a field
 // rename shows up as a compile error.
 #define MBEDTLS_ALLOW_PRIVATE_ACCESS
 
-#include "mbedtls.hpp"
+#include "mbedtls_shim.hpp"
 
 #include <mbedtls/build_info.h>
 #include <mbedtls/error.h>

@@ -1,8 +1,0 @@
-@PACKAGE_INIT@
-
-# find_package(MbedTLS CONFIG) gives mbedtls::cpp, the C++ layer of this project (mbedtls.hpp), as an imported *shared*
-# library: Mbed TLS is linked statically inside it, with hidden visibility, so the Mbed TLS / PSA C API is not part
-# of the package. The version is Mbed TLS's, so find_package(MbedTLS 4) works.
-include("${CMAKE_CURRENT_LIST_DIR}/MbedTLSTargets.cmake")
-
-check_required_components(MbedTLS)
