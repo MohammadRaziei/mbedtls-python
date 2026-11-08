@@ -4,7 +4,7 @@ Python bindings for [Mbed TLS](https://github.com/Mbed-TLS/mbedtls) (4.2.0), bui
 [httpp](https://github.com/MohammadRaziei/httpp): Cython, scikit-build-core, one `cp39-abi3` wheel per platform plus
 separate free-threaded wheels (`cp313t`, `cp314t`, `cp315t`).
 
-Mbed TLS is a git submodule, built from source as **shared libraries** and installed whole into the SDK: `include/mbedtls`,
+Mbed TLS is a git submodule, built from source as **shared libraries** (static on Windows: Mbed TLS cannot be a DLL there) and installed whole into the SDK: `include/mbedtls`,
 `include/psa`, `libmbedtls`, `libmbedx509`, `libtfpsacrypto` and `lib/cmake/MbedTLS` (`find_package(MbedTLS)` gives `MbedTLS::mbedtls`,
 `MbedTLS::mbedx509`, `MbedTLS::tfpsacrypto`), written by Mbed TLS's own install rules. The wheel carries that install as `mbedtls/sdk/`,
 so there is no system package: Python and any C/C++ project use the same libraries. Nothing is wrapped around the C API; the
@@ -114,7 +114,7 @@ target_link_libraries(app PRIVATE MbedTLS::tfpsacrypto)    # and MbedTLS::mbedtl
 mbedtls --cmake-dir     # also: --sdk-dir, --include-dir, --lib-dir (python -m mbedtls ... works too)
 ```
 
-On Windows the program finds the Mbed TLS DLLs only beside itself or on `PATH`; the examples copy them. A complete project: `examples/find_mbedtls_via_python`.
+On Windows the SDK libraries are static (`.lib`), nothing to copy next to the program. A complete project: `examples/find_mbedtls_via_python`.
 
 Not verified: this layout was written without a build. Run the configure, `pip wheel .` and `ctest`, and check in particular that the
 installed `MbedTLSTargets.cmake` points at `mbedtls_python_config.h` and not at a build directory.

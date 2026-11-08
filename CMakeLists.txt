@@ -40,8 +40,18 @@ endif()
 set(ENABLE_PROGRAMS OFF CACHE BOOL "" FORCE)
 set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 set(MBEDTLS_FATAL_WARNINGS OFF CACHE BOOL "" FORCE)
-set(USE_STATIC_MBEDTLS_LIBRARY OFF CACHE BOOL "" FORCE)
-set(USE_SHARED_MBEDTLS_LIBRARY ON CACHE BOOL "" FORCE)
+# Shared everywhere but Windows. There Mbed TLS cannot be a DLL: it declares no __declspec(dllexport), and
+# CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS only exports functions, while its API also has data symbols other libraries use
+# (mbedtls_x509_crt_profile_default, ... -> LNK2019 between mbedtls.dll and mbedx509.dll). So on Windows the SDK holds
+# static libraries (mbedtls.lib, mbedx509.lib, tfpsacrypto.lib) and the Python extension has them linked in.
+# Upgrade path: upstream export macros.
+if(WIN32)
+    set(USE_STATIC_MBEDTLS_LIBRARY ON CACHE BOOL "" FORCE)
+    set(USE_SHARED_MBEDTLS_LIBRARY OFF CACHE BOOL "" FORCE)
+else()
+    set(USE_STATIC_MBEDTLS_LIBRARY OFF CACHE BOOL "" FORCE)
+    set(USE_SHARED_MBEDTLS_LIBRARY ON CACHE BOOL "" FORCE)
+endif()
 set(DISABLE_PACKAGE_CONFIG_AND_INSTALL OFF CACHE BOOL "" FORCE)  # Mbed TLS writes the install and the CMake package
 
 # The codegen'd sources (library/error.c, psa_crypto_driver_wrappers_no_static.c, ...) must exist before
@@ -81,13 +91,6 @@ endif()
 if(WIN32 OR MBEDTLS_CPP_THREADING_ALT)
     include_directories(${PROJECT_SOURCE_DIR}/src/alt)
 endif()
-# Windows: Mbed TLS 4.x declares no __declspec(dllexport), so its DLLs would export nothing and MSVC would not write
-# the import libraries (tfpsacrypto.lib, ...) that mbedx509 / mbedtls and the Python extension link against
-# (LNK1181: cannot open input file 'tfpsacrypto.lib'). Exporting every symbol makes the DLLs usable. It applies to the
-# targets created from here on, i.e. to the ones Mbed TLS defines below.
-if(WIN32)
-    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-endif()
 add_subdirectory(${_mbedtls_dir})  # in `all`: the install below needs the libraries built
 
 # A wheel carries one file per library (zip has no symlinks): no version suffix, the soname is plain libmbedtls.so.
@@ -98,6 +101,14 @@ if(DEFINED SKBUILD)
     foreach(_t mbedtls mbedx509 tfpsacrypto)
         set_property(TARGET ${_t} PROPERTY VERSION)
         set_property(TARGET ${_t} PROPERTY SOVERSION)
+        # The libraries find each other (libmbedtls.so needs libmbedx509.so, ...) beside themselves. Without this the
+        # installed ones have no RUNPATH: it works in Python (the extension loads all three first) but auditwheel
+        # resolves every library alone and fails with "required library libmbedx509.so could not be located".
+        if(APPLE)
+            set_property(TARGET ${_t} PROPERTY INSTALL_RPATH "@loader_path")
+        elseif(NOT WIN32)
+            set_property(TARGET ${_t} PROPERTY INSTALL_RPATH "$ORIGIN")
+        endif()
     endforeach()
 endif()
 
@@ -117,7 +128,7 @@ install(FILES ${PROJECT_SOURCE_DIR}/cmake/mbedtls_config.h RENAME mbedtls_python
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(FILES ${PROJECT_SOURCE_DIR}/src/alt/threading_alt.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-# In a wheel only the three libraries are kept, as plain .so / .dylib / .dll: Mbed TLS also installs the historical
+# In a wheel only the three libraries are kept, as plain .so / .dylib (static .lib on Windows): Mbed TLS also installs the historical
 # libmbedcrypto.* (a second copy of tfpsacrypto), pkg-config files and the TF-PSA-Crypto package, which MbedTLS's own
 # package does not need. This runs after the install rules of the submodule above.
 if(DEFINED SKBUILD)

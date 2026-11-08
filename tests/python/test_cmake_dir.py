@@ -19,4 +19,4 @@ def test_package_dirs_exist():
     assert (Path(mbedtls.get_include_dir()) / "psa" / "crypto.h").is_file()
     for lib in ("mbedtls", "mbedx509", "tfpsacrypto"):
         found = list(Path(mbedtls.get_lib_dir()).glob(f"*{lib}*"))
-        assert any(p.suffix in (".so", ".dylib", ".dll") or ".so." in p.name for p in found), lib
+        assert any(p.suffix in (".so", ".dylib", ".lib") or ".so." in p.name for p in found), lib

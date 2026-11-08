@@ -18,12 +18,8 @@ find_package(Threads REQUIRED)
 add_executable(consumer main.c)
 target_link_libraries(consumer PRIVATE MbedTLS::tfpsacrypto Threads::Threads)
 
-# Windows has no rpath: the program finds the DLLs only next to itself (or on PATH). Elsewhere the imported target
-# already gives it an rpath to the shared libraries.
-if(WIN32)
-    add_custom_command(TARGET consumer POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:MbedTLS::tfpsacrypto> $<TARGET_FILE_DIR:consumer>)
-endif()
+# Windows: the SDK libraries are static (.lib), nothing to copy. Elsewhere the imported target gives the program an rpath
+# to the shared libraries.
 
 enable_testing()
 add_test(NAME consumer COMMAND consumer)

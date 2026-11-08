@@ -18,6 +18,8 @@ such changes are listed under **Changed**). The version of the project is the `v
   no longer isolated.
 - `examples/consumer` is a C program on `MbedTLS::tfpsacrypto`; the prebuilt archive is `mbedtls-*`.
 - Where the alt threading layer is used (Windows), an application using the SDK registers it itself (`mbedtls_threading_set_alt()`).
+- Windows: Mbed TLS is installed as **static** libraries (`mbedtls.lib`, `mbedx509.lib`, `tfpsacrypto.lib`) and linked into the extension. It has no export macros, and `CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS` misses its data symbols (`mbedtls_x509_crt_profile_default`, ...), so its DLLs cannot be linked.
+- Linux/macOS wheels: the installed libraries carry `RUNPATH $ORIGIN` / `@loader_path`, so `auditwheel repair` can resolve `libmbedx509.so` from `libmbedtls.so`.
 
 ## [0.2.0] - 2026-11-07
 
