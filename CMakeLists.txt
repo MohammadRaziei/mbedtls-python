@@ -128,20 +128,6 @@ install(FILES ${PROJECT_SOURCE_DIR}/cmake/mbedtls_config.h RENAME mbedtls_python
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(FILES ${PROJECT_SOURCE_DIR}/src/alt/threading_alt.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-# In a wheel only the three libraries are kept, as plain .so / .dylib (static .lib on Windows): Mbed TLS also installs the historical
-# libmbedcrypto.* (a second copy of tfpsacrypto), pkg-config files and the TF-PSA-Crypto package, which MbedTLS's own
-# package does not need. This runs after the install rules of the submodule above.
-if(DEFINED SKBUILD)
-    install(CODE "
-        set(_lib \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}\")
-        file(GLOB _extra \"\${_lib}/*mbedcrypto*\" \"\${_lib}/*.so.*\" \"\${_lib}/*.so.\" \"\${_lib}/*.*.dylib\")
-        if(_extra)
-            file(REMOVE \${_extra})
-        endif()
-        file(REMOVE_RECURSE \"\${_lib}/pkgconfig\" \"\${_lib}/cmake/TF-PSA-Crypto\")
-    ")
-endif()
-
 # --- the private C++ shim of the Python extension ---
 # src/bindings/python/shim: small C++ classes over the Mbed TLS / PSA C API (hashes, HMAC, random bytes, X.509) that
 # the Cython module wraps. It is compiled into the extension (and into the C++ tests); it is not installed and not part

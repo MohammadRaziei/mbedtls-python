@@ -58,6 +58,14 @@ MBEDTLS_CPP_BUILD_TESTS = "OFF"
 [tool.scikit-build.wheel]
 py-api = "cp39"
 packages = []  # the package files are installed by CMake (install(DIRECTORY ...)), not auto-collected
+# Mbed TLS's own install also writes things the wheel does not need: the historical libmbedcrypto.* (a second copy of
+# tfpsacrypto), pkg-config files, and the TF-PSA-Crypto CMake package (MbedTLS's package is self-contained). A plain
+# `cmake --install` keeps them; only the wheel leaves them out.
+exclude = [
+    "mbedtls/sdk/lib/*mbedcrypto*",
+    "mbedtls/sdk/lib/pkgconfig",
+    "mbedtls/sdk/lib/cmake/TF-PSA-Crypto",
+]
 
 [tool.scikit-build]
 # The submodule is not tracked by this repo, so the sdist must be told to carry it (with its own nested submodules).
