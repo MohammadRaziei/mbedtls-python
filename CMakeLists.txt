@@ -84,8 +84,13 @@ endif()
 add_subdirectory(${_mbedtls_dir})  # in `all`: the install below needs the libraries built
 
 # A wheel carries one file per library (zip has no symlinks): no version suffix, the soname is plain libmbedtls.so.
+# set_property with no value removes the property; set_target_properties(... VERSION "") would leave an empty one, and
+# CMake would then name the files (and the exported targets) "libmbedtls.so." with a trailing dot.
 if(DEFINED SKBUILD)
-    set_target_properties(mbedtls mbedx509 tfpsacrypto PROPERTIES VERSION "" SOVERSION "")
+    foreach(_t mbedtls mbedx509 tfpsacrypto)
+        set_property(TARGET ${_t} PROPERTY VERSION)
+        set_property(TARGET ${_t} PROPERTY SOVERSION)
+    endforeach()
 endif()
 
 # Mbed TLS puts the user config's absolute path in its targets (a PUBLIC compile definition), which would point an
@@ -103,6 +108,18 @@ endforeach()
 install(FILES ${PROJECT_SOURCE_DIR}/cmake/mbedtls_config.h RENAME mbedtls_python_config.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(FILES ${PROJECT_SOURCE_DIR}/src/alt/threading_alt.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+# In a wheel only the three libraries are kept, as plain .so / .dylib / .dll: Mbed TLS also installs the historical
+# libmbedcrypto.* (a second copy of tfpsacrypto, three more files in a zip), pkg-config files and the TF-PSA-Crypto
+# package, which MbedTLS's own package does not need. This runs after the install rules of the submodule above.
+if(DEFINED SKBUILD)
+    install(CODE "
+        set(_lib \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}\")
+        file(GLOB _extra \"\${_lib}/*mbedcrypto*\" \"\${_lib}/*.so.*\" \"\${_lib}/*.so.\" \"\${_lib}/*.*.dylib\")
+        file(REMOVE \${_extra})
+        file(REMOVE_RECURSE \"\${_lib}/pkgconfig\" \"\${_lib}/cmake/TF-PSA-Crypto\")
+    ")
+endif()
 
 # --- the private C++ shim of the Python extension ---
 # src/bindings/python/shim: small C++ classes over the Mbed TLS / PSA C API (hashes, HMAC, random bytes, X.509) that
