@@ -8,14 +8,18 @@ such changes are listed under **Changed**). The version of the project is the `v
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-09
+
 ### Changed
-- **The SDK is Mbed TLS itself.** It is built as shared libraries and installed whole by Mbed TLS's own install rules: `include/mbedtls`,
+- **The SDK is Mbed TLS itself.** It is built as shared libraries (static on Windows) and installed whole by Mbed TLS's own install rules: `include/mbedtls`,
   `include/psa`, `libmbedtls` / `libmbedx509` / `libtfpsacrypto`, `lib/cmake/MbedTLS` (`MbedTLS::mbedtls`, `MbedTLS::mbedx509`,
   `MbedTLS::tfpsacrypto`). The wheel carries it as `mbedtls/sdk/`. The project's user config (thread safety) is installed beside the
   headers as `mbedtls_python_config.h`, and the exported targets point at it.
 - **`mbedtls_cpp_core`, `mbedtls::cpp`, `mbedtls.hpp` and `export.hpp` are gone.** The C++ classes are now a private shim inside the Python
   extension (`src/bindings/python/shim`), not installed. Hidden visibility is gone too: another copy of Mbed TLS in the same process is
   no longer isolated.
+- The wheel leaves out Mbed TLS's historical `libmbedcrypto.*` copy, the pkg-config files and the TF-PSA-Crypto CMake package
+  (`tool.scikit-build.wheel.exclude`); a plain `cmake --install` keeps them.
 - `examples/consumer` is a C program on `MbedTLS::tfpsacrypto`; the prebuilt archive is `mbedtls-*`.
 - Where the alt threading layer is used (Windows), an application using the SDK registers it itself (`mbedtls_threading_set_alt()`).
 - Windows: Mbed TLS is installed as **static** libraries (`mbedtls.lib`, `mbedx509.lib`, `tfpsacrypto.lib`) and linked into the extension. It has no export macros, and `CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS` misses its data symbols (`mbedtls_x509_crt_profile_default`, ...), so its DLLs cannot be linked.
@@ -87,6 +91,7 @@ First release. Python bindings for Mbed TLS 4.2.0, linked statically into the ex
   code is shown next to it.
 - Tested on Linux with Python 3.12. The workflows have not run on GitHub yet; Windows, macOS and CPython 3.9 are untested.
 
-[Unreleased]: https://github.com/MohammadRaziei/mbedtls-python/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/MohammadRaziei/mbedtls-python/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/MohammadRaziei/mbedtls-python/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/MohammadRaziei/mbedtls-python/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MohammadRaziei/mbedtls-python/releases/tag/v0.1.0

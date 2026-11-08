@@ -10,7 +10,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "mbedtls"
-version = "0.2.0"
+version = "0.3.0"
 description = "Python bindings for Mbed TLS: thread-safe, one abi3 wheel for CPython 3.9+, with the C++ SDK (shared library) inside"
 authors = [
     {name = "Mohammad Raziei", email = "mohammadraziei1375@gmail.com"},
