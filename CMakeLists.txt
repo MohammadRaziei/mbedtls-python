@@ -81,11 +81,19 @@ endif()
 if(WIN32 OR MBEDTLS_CPP_THREADING_ALT)
     include_directories(${PROJECT_SOURCE_DIR}/src/alt)
 endif()
+# Windows: Mbed TLS 4.x declares no __declspec(dllexport), so its DLLs would export nothing and MSVC would not write
+# the import libraries (tfpsacrypto.lib, ...) that mbedx509 / mbedtls and the Python extension link against
+# (LNK1181: cannot open input file 'tfpsacrypto.lib'). Exporting every symbol makes the DLLs usable. It applies to the
+# targets created from here on, i.e. to the ones Mbed TLS defines below.
+if(WIN32)
+    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+endif()
 add_subdirectory(${_mbedtls_dir})  # in `all`: the install below needs the libraries built
 
 # A wheel carries one file per library (zip has no symlinks): no version suffix, the soname is plain libmbedtls.so.
-# set_property with no value removes the property; set_target_properties(... VERSION "") would leave an empty one, and
-# CMake would then name the files (and the exported targets) "libmbedtls.so." with a trailing dot.
+# set_property with no value removes the property. set_target_properties(... VERSION "") would leave an empty one, and
+# CMake would then name the files (and the exported targets) "libmbedtls.so." with a trailing dot, which breaks
+# find_package and auditwheel.
 if(DEFINED SKBUILD)
     foreach(_t mbedtls mbedx509 tfpsacrypto)
         set_property(TARGET ${_t} PROPERTY VERSION)
@@ -110,13 +118,15 @@ install(FILES ${PROJECT_SOURCE_DIR}/cmake/mbedtls_config.h RENAME mbedtls_python
 install(FILES ${PROJECT_SOURCE_DIR}/src/alt/threading_alt.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # In a wheel only the three libraries are kept, as plain .so / .dylib / .dll: Mbed TLS also installs the historical
-# libmbedcrypto.* (a second copy of tfpsacrypto, three more files in a zip), pkg-config files and the TF-PSA-Crypto
-# package, which MbedTLS's own package does not need. This runs after the install rules of the submodule above.
+# libmbedcrypto.* (a second copy of tfpsacrypto), pkg-config files and the TF-PSA-Crypto package, which MbedTLS's own
+# package does not need. This runs after the install rules of the submodule above.
 if(DEFINED SKBUILD)
     install(CODE "
         set(_lib \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}\")
         file(GLOB _extra \"\${_lib}/*mbedcrypto*\" \"\${_lib}/*.so.*\" \"\${_lib}/*.so.\" \"\${_lib}/*.*.dylib\")
-        file(REMOVE \${_extra})
+        if(_extra)
+            file(REMOVE \${_extra})
+        endif()
         file(REMOVE_RECURSE \"\${_lib}/pkgconfig\" \"\${_lib}/cmake/TF-PSA-Crypto\")
     ")
 endif()
