@@ -8,6 +8,14 @@ such changes are listed under **Changed**). The version of the project is the `v
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-09
+
+### Added
+- **`python -m mbedtls --version` (`-v`)** prints the version of the Python package alone, and **`--mbedtls-version`** the version
+  of the Mbed TLS library inside it, each on one line with nothing else, so a build system can compare it with a version range
+  without parsing text (`execute_process(python -m mbedtls --version)`). They are different numbers: `0.3.1` is the wheel,
+  `4.2.0` is Mbed TLS. Without flags the program still prints both in one line.
+
 ## [0.3.0] - 2026-11-09
 
 ### Changed
